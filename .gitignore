@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# builds / output
+dist/
+**/dist/
+/web/.angular/
+build/
+out/
+
+# env
+.env
+.env*.local
+**/.env
+!**/.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# misc
+.DS_Store
+coverage/
+*.tsbuildinfo
+.vercel
