@@ -1,0 +1,56 @@
+:host {
+  display: block;
+}
+
+.rn-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.rn-form {
+  margin-top: var(--space-7); /* 20px */
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.rn-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-6); /* 16px */
+}
+
+.rn-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3); /* 6px */
+}
+
+.rn-label {
+  font-size: var(--text-sm-size);
+  line-height: var(--text-sm-lh);
+  font-weight: var(--weight-semibold);
+  color: var(--text-body);
+}
+
+.rn-req {
+  color: var(--red-600);
+  margin-left: 2px;
+}
+
+// Material form fields fill the field width; labels live above (custom).
+.rn-field mat-form-field {
+  width: 100%;
+}
+
+.rn-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+// Align the leading send icon inside the primary action button.
+.rn-actions button app-icon {
+  margin-right: var(--space-3); /* 6px */
+}

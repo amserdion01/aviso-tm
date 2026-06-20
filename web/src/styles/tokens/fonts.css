@@ -1,0 +1,7 @@
+/* ============================================================
+   Aviso — Webfonts
+   IBM Plex Sans + IBM Plex Mono, loaded from Google Fonts CDN.
+   NOTE: CDN-linked rather than self-hosted binaries — see readme.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');

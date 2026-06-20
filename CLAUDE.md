@@ -7,6 +7,31 @@ UI is in **Romanian**.
 
 > The full build brief is in [`PROMPT.md`](./PROMPT.md). Start there.
 
+## Current status
+**Built.** Monorepo with `/api` (NestJS + Prisma + Postgres, complete & verified) and `/web`
+(Angular 20 standalone + signals + Material, themed to the Aviso design system, verified against
+the live API). Postgres runs via Docker Compose on host port **5434**. See [`README.md`](./README.md)
+for full run/deploy details.
+
+## Commands
+Run from the repo root (pnpm workspace):
+```bash
+pnpm install            # install api + web
+pnpm db:up              # start Postgres (docker compose, host port 5434)
+cp api/.env.example api/.env
+pnpm api:migrate        # prisma migrate dev
+pnpm api:seed           # seed ~6 referate (both paths, mid-chain, finalized)
+pnpm api:start          # NestJS API → http://localhost:3000  (start:dev, watch)
+pnpm web:start          # Angular dev server → http://localhost:4200
+pnpm api:build          # production build of the API (dist/main.js)
+pnpm web:build          # production build of the web app (web/dist/aviso-web/browser)
+```
+Scope a command to one package with `pnpm --filter api …` / `pnpm --filter web …`. Run a single
+Nest/Prisma command via `pnpm --filter api exec <cmd>` (e.g. `prisma migrate reset`).
+
+The web design tokens live in `web/src/styles/tokens/` and are mapped to one Angular Material
+theme in `web/src/styles.scss` — re-theming to a real brand is a contained change there.
+
 ## Workflow for building this
 - **Plan mode first.** Before writing any code, present for approval: the monorepo layout,
   the Prisma schema, and the endpoint list. Do not start coding until that's approved.

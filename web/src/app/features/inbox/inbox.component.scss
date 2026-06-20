@@ -1,0 +1,149 @@
+:host {
+  display: block;
+}
+
+.inbox {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ---- Header ---- */
+.inbox__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-7);
+}
+
+.inbox__new {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--control-h-md);
+  flex: none;
+}
+
+/* ---- Card wrapping the table (padding removed so the table sits flush) ---- */
+.inbox__card {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ---- Table ---- */
+.inbox__table {
+  width: 100%;
+  background: transparent;
+}
+
+// Header cells: eyebrow style.
+.inbox__table th.mat-mdc-header-cell {
+  font-family: var(--font-sans);
+  font-size: var(--text-overline-size);
+  line-height: var(--text-overline-lh);
+  letter-spacing: var(--text-overline-ls);
+  text-transform: uppercase;
+  font-weight: var(--weight-semibold);
+  color: var(--text-subtle);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+}
+
+// Body cells.
+.inbox__table td.mat-mdc-cell {
+  font-size: var(--text-body-size);
+  color: var(--text-body);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+// Right-aligned columns (Valoare, actions).
+.inbox__table th.mat-mdc-header-cell.num,
+.inbox__table td.mat-mdc-cell.num {
+  text-align: right;
+}
+
+// Last row: no trailing divider.
+.inbox__table tr.inbox__row:last-of-type td.mat-mdc-cell {
+  border-bottom: none;
+}
+
+.inbox__row {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.inbox__row:hover {
+  background: var(--surface-hover);
+}
+
+/* ---- Cell content ---- */
+.cell-ref__code {
+  font-size: var(--text-sm-size);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.cell-ref__date {
+  font-size: 11px;
+  color: var(--text-subtle);
+  margin-top: 2px;
+}
+
+.cell-strong {
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.cell-muted {
+  font-size: var(--text-caption-size);
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.cell-subtle {
+  color: var(--text-subtle);
+}
+
+.cell-val {
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+/* ---- Action buttons ---- */
+.cell-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.act-approve.mat-mdc-button-base {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-5);
+  min-width: 0;
+  font-size: var(--text-sm-size);
+  font-weight: var(--weight-semibold);
+}
+
+.act-icon.mat-mdc-icon-button {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.act-icon.mat-mdc-icon-button:hover {
+  color: var(--text-strong);
+  background: var(--surface-hover);
+}

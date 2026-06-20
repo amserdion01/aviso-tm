@@ -1,0 +1,219 @@
+:host {
+  display: block;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+}
+
+.login-card {
+  display: flex;
+  width: 100%;
+  max-width: 880px;
+  background: var(--surface-card);
+  border: var(--border-w) solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* ============ LEFT: form ============ */
+.login-form-side {
+  flex: 1;
+  min-width: 0;
+  padding: 38px 40px;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: 26px;
+}
+
+.wordmark {
+  font-size: 21px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+.wordmark-tm {
+  color: var(--accent);
+}
+
+.login-title {
+  font-size: 23px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+  color: var(--text-strong);
+  margin: 0 0 var(--space-2);
+}
+
+.login-subtitle {
+  font-size: var(--text-sm-size);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 22px;
+}
+
+.login-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 13px;
+  background: var(--red-50);
+  border: var(--border-w) solid var(--red-200);
+  border-radius: var(--radius-lg);
+  margin-bottom: 18px;
+  font-size: var(--text-sm-size);
+  color: var(--red-700);
+  line-height: 1.4;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.field-prefix {
+  color: var(--text-subtle);
+  margin: 0 var(--space-3) 0 var(--space-2);
+}
+
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-top: -4px;
+}
+
+.login-submit {
+  width: 100%;
+  height: var(--control-h-lg);
+
+  app-icon {
+    margin-right: var(--space-4);
+  }
+}
+
+/* ============ Demo accounts ============ */
+.demo-accounts {
+  margin-top: 22px;
+  border-top: var(--border-w) solid var(--border-subtle);
+  padding-top: var(--space-6);
+}
+
+.demo-eyebrow {
+  font-size: var(--text-overline-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: var(--space-3);
+}
+
+.demo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  text-align: left;
+  padding: 7px var(--space-4);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--dur-fast) var(--ease-standard);
+
+  &:hover {
+    background: var(--surface-sunken);
+  }
+}
+
+.demo-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.demo-name {
+  display: block;
+  font-size: var(--text-sm-size);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.demo-role {
+  display: block;
+  font-size: var(--text-overline-size);
+  color: var(--text-muted);
+}
+
+.demo-email {
+  font-family: var(--font-mono);
+  font-size: var(--text-overline-size);
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+/* ============ RIGHT: brand panel ============ */
+.login-brand-side {
+  width: 320px;
+  flex: none;
+  padding: 38px 32px;
+  background: radial-gradient(
+    120% 120% at 25% 15%,
+    var(--blue-600),
+    var(--blue-900)
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #fff;
+}
+
+.brand-inverse {
+  opacity: 0.96;
+}
+
+.brand-headline {
+  font-size: 21px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin-bottom: 10px;
+}
+
+.brand-paragraph {
+  font-size: var(--text-sm-size);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0 0 var(--space-7);
+}
+
+.brand-features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  font-size: var(--text-sm-size);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.brand-feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.brand-footer {
+  font-size: var(--text-caption-size);
+  color: rgba(255, 255, 255, 0.6);
+}

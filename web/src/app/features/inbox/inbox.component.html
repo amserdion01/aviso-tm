@@ -1,0 +1,142 @@
+<div class="inbox">
+  <!-- Header: title + count subtext, secondary "Referat nou" -->
+  <div class="inbox__head">
+    <div>
+      <h1 class="page-title">Inboxul meu</h1>
+      <p class="page-sub">
+        @if (referate().length > 0) {
+          @if (referate().length === 1) {
+            1 referat așteaptă decizia ta.
+          } @else {
+            {{ referate().length }} referate așteaptă decizia ta.
+          }
+        } @else {
+          Nimic de aprobat momentan.
+        }
+      </p>
+    </div>
+
+    <a mat-stroked-button routerLink="/referat-nou" class="inbox__new">
+      <app-icon name="file-plus" [size]="18" />
+      <span>Referat nou</span>
+    </a>
+  </div>
+
+  @if (referate().length > 0) {
+    <!-- List -->
+    <div class="av-card inbox__card">
+      <table mat-table [dataSource]="referate()" class="inbox__table">
+        <!-- Referat -->
+        <ng-container matColumnDef="ref">
+          <th mat-header-cell *matHeaderCellDef>Referat</th>
+          <td mat-cell *matCellDef="let r">
+            <div class="cell-ref__code mono">{{ shortCode(r) }}</div>
+            <div class="cell-ref__date mono">{{ r.createdAt | dataRo }}</div>
+          </td>
+        </ng-container>
+
+        <!-- Solicitant -->
+        <ng-container matColumnDef="sol">
+          <th mat-header-cell *matHeaderCellDef>Solicitant</th>
+          <td mat-cell *matCellDef="let r">
+            <div class="cell-strong">{{ r.requester?.name }}</div>
+            <div class="cell-muted">Solicitant</div>
+          </td>
+        </ng-container>
+
+        <!-- Articol -->
+        <ng-container matColumnDef="art">
+          <th mat-header-cell *matHeaderCellDef>Articol</th>
+          <td mat-cell *matCellDef="let r">
+            <div class="cell-strong">{{ r.articol }}</div>
+            <div class="cell-muted">{{ r.centruCost }}</div>
+          </td>
+        </ng-container>
+
+        <!-- Valoare -->
+        <ng-container matColumnDef="val">
+          <th mat-header-cell *matHeaderCellDef class="num">Valoare</th>
+          <td mat-cell *matCellDef="let r" class="num">
+            <span class="cell-val mono">{{ r.valoareLei | lei }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Pas curent -->
+        <ng-container matColumnDef="pas">
+          <th mat-header-cell *matHeaderCellDef>Pas curent</th>
+          <td mat-cell *matCellDef="let r">
+            @if (r.status === 'TRIMIS_INAPOI') {
+              <app-status-badge status="sentback" size="sm" />
+            } @else if (waitingTask(r); as wt) {
+              <app-badge>{{ ROLE_SHORT[wt.role] }}</app-badge>
+            } @else {
+              <span class="cell-subtle">—</span>
+            }
+          </td>
+        </ng-container>
+
+        <!-- Actions -->
+        <ng-container matColumnDef="act">
+          <th mat-header-cell *matHeaderCellDef class="num"></th>
+          <td mat-cell *matCellDef="let r" class="num">
+            <div class="cell-actions">
+              <button
+                mat-flat-button
+                color="primary"
+                class="act-approve"
+                (click)="approve(r, $event)"
+              >
+                <app-icon name="check" [size]="15" />
+                <span>Aprobă</span>
+              </button>
+              <button
+                mat-icon-button
+                class="act-icon"
+                aria-label="Trimite înapoi"
+                title="Trimite înapoi"
+                (click)="goToAction(r, 'back', $event)"
+              >
+                <app-icon name="corner-up-left" [size]="16" />
+              </button>
+              <button
+                mat-icon-button
+                class="act-icon"
+                aria-label="Respinge"
+                title="Respinge"
+                (click)="goToAction(r, 'reject', $event)"
+              >
+                <app-icon name="x" [size]="16" />
+              </button>
+            </div>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr
+          mat-row
+          *matRowDef="let r; columns: displayedColumns"
+          class="inbox__row"
+          (click)="openDetail(r)"
+        ></tr>
+      </table>
+    </div>
+  } @else {
+    <!-- Empty state -->
+    <div class="av-card">
+      <app-empty-state
+        icon="inbox"
+        title="Inbox gol — bună treabă!"
+        [description]="
+          actingRole() === 'ANGAJAT'
+            ? 'Nu ai referate de aprobat — rolul de angajat depune cereri, nu le avizează. Poți crea un referat nou când ai nevoie de o achiziție.'
+            : 'Nu ai niciun referat care așteaptă aprobarea ta. Tot ce necesită decizia ta apare aici.'
+        "
+      >
+        <a mat-flat-button color="primary" routerLink="/referat-nou">
+          <app-icon name="file-plus" [size]="16" />
+          <span>Creează un referat</span>
+        </a>
+      </app-empty-state>
+    </div>
+  }
+</div>

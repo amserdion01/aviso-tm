@@ -1,0 +1,97 @@
+// Aviso TM — referat de necesitate approval workflow (demo).
+// Money is stored as integer lei (valoareLei: Int) — never a float.
+// Transition is an APPEND-ONLY audit trail: code only ever INSERTs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ANGAJAT
+  SEF_IERARHIC
+  ACHIZITII
+  DIR_ECONOMIC
+  DIR_GENERAL
+}
+
+enum ReferatStatus {
+  IN_ASTEPTARE
+  APROBAT
+  RESPINS
+  TRIMIS_INAPOI
+  FINALIZAT
+}
+
+enum TaskStatus {
+  PENDING
+  WAITING
+  APPROVED
+  REJECTED
+  SENT_BACK
+}
+
+model User {
+  id   String @id @default(cuid())
+  name String
+  role Role
+
+  referate           Referat[]      @relation("requester")
+  approverTasks      ApprovalTask[] @relation("effectiveApprover")
+  actedTasks         ApprovalTask[] @relation("actedBy")
+  transitions        Transition[]   @relation("actor")
+}
+
+model Referat {
+  id          String        @id @default(cuid())
+  articol     String
+  cantitate   Int
+  justificare String
+  centruCost  String
+  valoareLei  Int
+  requesterId String
+  status      ReferatStatus @default(IN_ASTEPTARE)
+  createdAt   DateTime      @default(now())
+
+  requester   User           @relation("requester", fields: [requesterId], references: [id])
+  tasks       ApprovalTask[]
+  transitions Transition[]
+}
+
+model ApprovalTask {
+  id                  String     @id @default(cuid())
+  referatId           String
+  stepOrder           Int
+  role                Role
+  status              TaskStatus @default(PENDING)
+  effectiveApproverId String?
+  actedById           String?
+  actedAt             DateTime?
+  comment             String?
+
+  referat           Referat @relation(fields: [referatId], references: [id], onDelete: Cascade)
+  effectiveApprover User?   @relation("effectiveApprover", fields: [effectiveApproverId], references: [id])
+  actedBy           User?   @relation("actedBy", fields: [actedById], references: [id])
+
+  @@unique([referatId, stepOrder])
+  @@index([role, status])
+}
+
+model Transition {
+  id        String   @id @default(cuid())
+  referatId String
+  fromState String?
+  toState   String
+  actorId   String
+  comment   String?
+  createdAt DateTime @default(now())
+
+  referat Referat @relation(fields: [referatId], references: [id], onDelete: Cascade)
+  actor   User    @relation("actor", fields: [actorId], references: [id])
+
+  @@index([referatId, createdAt])
+}

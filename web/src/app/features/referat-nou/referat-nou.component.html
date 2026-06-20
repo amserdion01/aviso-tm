@@ -1,0 +1,141 @@
+<div class="rn-page">
+  <h1 class="page-title">Referat nou</h1>
+  <p class="page-sub">
+    Completează detaliile achiziției. Sistemul alege automat traseul de avizare
+    în funcție de valoare.
+  </p>
+
+  <form class="av-card av-card-pad rn-form" [formGroup]="form" (ngSubmit)="submit()">
+    <!-- Articol -->
+    <div class="rn-field">
+      <label class="rn-label" for="rn-articol">
+        Articol <span class="rn-req">*</span>
+      </label>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <input
+          id="rn-articol"
+          matInput
+          type="text"
+          formControlName="articol"
+          placeholder="ex. Laptop Dell Latitude 5540"
+        />
+        @if (form.controls.articol.touched && form.controls.articol.hasError('required')) {
+          <mat-error>Completează denumirea articolului.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <!-- Cantitate + Centru de cost -->
+    <div class="rn-grid">
+      <div class="rn-field">
+        <label class="rn-label" for="rn-cantitate">
+          Cantitate <span class="rn-req">*</span>
+        </label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input
+            id="rn-cantitate"
+            matInput
+            type="number"
+            min="1"
+            formControlName="cantitate"
+          />
+          @if (
+            form.controls.cantitate.touched &&
+            (form.controls.cantitate.hasError('required') ||
+              form.controls.cantitate.hasError('min'))
+          ) {
+            <mat-error>Cantitatea trebuie să fie mai mare ca 0.</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <div class="rn-field">
+        <label class="rn-label" for="rn-centru">
+          Centru de cost <span class="rn-req">*</span>
+        </label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-select
+            id="rn-centru"
+            formControlName="centruCost"
+            placeholder="Alege centrul de cost"
+          >
+            @for (option of centruOptions; track option) {
+              <mat-option [value]="option">{{ option }}</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.centruCost.touched && form.controls.centruCost.hasError('required')) {
+            <mat-error>Alege un centru de cost.</mat-error>
+          }
+        </mat-form-field>
+      </div>
+    </div>
+
+    <!-- Justificare -->
+    <div class="rn-field">
+      <label class="rn-label" for="rn-justificare">
+        Justificare <span class="rn-req">*</span>
+      </label>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <textarea
+          id="rn-justificare"
+          matInput
+          rows="4"
+          formControlName="justificare"
+          placeholder="ex. Laptopul actual nu mai pornește și blochează activitatea zilnică…"
+        ></textarea>
+        @if (form.controls.justificare.touched && form.controls.justificare.hasError('required')) {
+          <mat-error>Explică necesitatea achiziției.</mat-error>
+        } @else {
+          <mat-hint>Explică necesitatea achiziției — va fi vizibilă aprobatorilor.</mat-hint>
+        }
+      </mat-form-field>
+    </div>
+
+    <!-- Valoare estimată -->
+    <div class="rn-field">
+      <label class="rn-label" for="rn-valoare">
+        Valoare estimată (lei) <span class="rn-req">*</span>
+      </label>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <input
+          id="rn-valoare"
+          matInput
+          type="number"
+          min="0"
+          placeholder="0"
+          formControlName="valoareLei"
+        />
+        @if (
+          form.controls.valoareLei.touched &&
+          (form.controls.valoareLei.hasError('required') ||
+            form.controls.valoareLei.hasError('min'))
+        ) {
+          <mat-error>Introdu o valoare estimată.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <!-- Live routing-path banner -->
+    @if (path() === 'short') {
+      <div class="path-banner short">
+        <span class="tag">Traseu scurt</span>
+        <span>Sub 5.000 lei · Șef ierarhic → Birou Achiziții. Fără avizări de directori.</span>
+      </div>
+    } @else if (path() === 'full') {
+      <div class="path-banner full">
+        <span class="tag">Traseu complet</span>
+        <span>De la 5.000 lei · Șef ierarhic → Birou Achiziții → Director economic → Director general.</span>
+      </div>
+    }
+  </form>
+
+  <div class="rn-actions">
+    <button type="button" mat-stroked-button (click)="saveDraft()">
+      Salvează ca schiță
+    </button>
+    <button type="button" mat-flat-button color="primary" (click)="submit()">
+      <app-icon name="send" [size]="16" />
+      Trimite referatul
+    </button>
+  </div>
+</div>

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aviso-tm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aviso
+      POSTGRES_PASSWORD: aviso
+      POSTGRES_DB: aviso_tm
+    ports:
+      - "5434:5432"
+    volumes:
+      - aviso_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aviso -d aviso_tm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aviso_pgdata:

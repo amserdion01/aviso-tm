@@ -1,0 +1,117 @@
+<div class="login-page">
+  <div class="login-card">
+    <!-- ============ LEFT: form ============ -->
+    <div class="login-form-side">
+      <div class="brand-row">
+        <img src="assets/aviso-mark.svg" width="30" height="30" alt="" />
+        <span class="wordmark">Aviso <span class="wordmark-tm">TM</span></span>
+      </div>
+
+      <h1 class="login-title">Autentificare</h1>
+      <p class="login-subtitle">
+        Intră în cont pentru a gestiona referatele de necesitate.
+      </p>
+
+      @if (loginError()) {
+        <div class="login-error-banner" role="alert">{{ loginError() }}</div>
+      }
+
+      <form class="login-form" [formGroup]="form" (ngSubmit)="doLogin()">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Email</mat-label>
+          <app-icon matPrefix name="mail" [size]="17" class="field-prefix" />
+          <input
+            matInput
+            type="email"
+            autocomplete="email"
+            placeholder="nume@apatim.ro"
+            formControlName="email"
+          />
+          @if (form.controls.email.hasError('required')) {
+            <mat-error>Introdu adresa de email.</mat-error>
+          } @else if (form.controls.email.hasError('pattern')) {
+            <mat-error>Adresă de email invalidă.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Parolă</mat-label>
+          <app-icon matPrefix name="lock" [size]="17" class="field-prefix" />
+          <input
+            matInput
+            type="password"
+            autocomplete="current-password"
+            placeholder="••••••••"
+            formControlName="password"
+          />
+          @if (form.controls.password.hasError('required')) {
+            <mat-error>Introdu parola.</mat-error>
+          }
+        </mat-form-field>
+
+        <div class="login-options">
+          <mat-checkbox formControlName="remember">Ține-mă minte</mat-checkbox>
+        </div>
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="login-submit"
+        >
+          <app-icon name="log-in" [size]="18" />
+          Autentificare
+        </button>
+      </form>
+
+      <div class="demo-accounts">
+        <div class="demo-eyebrow">Conturi demo · apasă pentru completare</div>
+        @for (acc of accounts(); track acc.user.id) {
+          <button type="button" class="demo-row" (click)="fillAccount(acc)">
+            <app-avatar [name]="acc.name" size="xs" />
+            <span class="demo-identity">
+              <span class="demo-name">{{ acc.name }}</span>
+              <span class="demo-role">{{ acc.roleLabel }}</span>
+            </span>
+            <span class="demo-email">{{ acc.email }}</span>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- ============ RIGHT: brand panel ============ -->
+    <div class="login-brand-side">
+      <img
+        class="brand-inverse"
+        src="assets/aviso-wordmark-inverse.svg"
+        width="118"
+        height="30"
+        alt="Aviso TM"
+      />
+
+      <div class="brand-copy">
+        <div class="brand-headline">Referate de necesitate, digitalizate.</div>
+        <p class="brand-paragraph">
+          Trimite, urmărește și aprobă cereri de achiziție într-un flux clar, cu
+          traseu de avizare și istoric complet.
+        </p>
+        <div class="brand-features">
+          <div class="brand-feature">
+            <app-icon name="route" [size]="16" />
+            Traseu de avizare adaptat valorii
+          </div>
+          <div class="brand-feature">
+            <app-icon name="users" [size]="16" />
+            Roluri și inbox personal
+          </div>
+          <div class="brand-feature">
+            <app-icon name="history" [size]="16" />
+            Istoric și audit complet
+          </div>
+        </div>
+      </div>
+
+      <div class="brand-footer">Apa Timișoara · Sistem intern Aviso</div>
+    </div>
+  </div>
+</div>

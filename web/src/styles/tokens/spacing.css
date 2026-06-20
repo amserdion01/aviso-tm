@@ -1,0 +1,32 @@
+/* ============================================================
+   Aviso — Spacing & sizing tokens
+   4px base grid. Generous whitespace, desktop-first density.
+   ============================================================ */
+
+:root {
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  12px;
+  --space-6:  16px;
+  --space-7:  20px;
+  --space-8:  24px;
+  --space-9:  32px;
+  --space-10: 40px;
+  --space-11: 48px;
+  --space-12: 64px;
+  --space-13: 80px;
+
+  /* Layout */
+  --app-topbar-h:   60px;
+  --app-sidebar-w:  248px;
+  --container-max:  1200px;
+  --content-narrow: 720px;
+
+  /* Control heights */
+  --control-h-sm: 32px;
+  --control-h-md: 40px;
+  --control-h-lg: 48px;
+}

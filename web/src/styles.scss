@@ -1,0 +1,186 @@
+// ============================================================
+//  Aviso TM — global styles.
+//  Token CSS (fonts/colors/typography/spacing/elevation/base) is loaded first
+//  via angular.json. This file maps those tokens onto a single Angular Material
+//  theme, so any Material component inherits the Aviso brand. Re-theming the app
+//  is contained to the token files + the overrides below.
+// ============================================================
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+  // M3 theme: azure is the closest built-in to the Aviso water-blue; the exact
+  // ramp is forced via the --mat-sys-* overrides below so it matches the tokens.
+  @include mat.theme((
+    color: (
+      theme-type: light,
+      primary: mat.$azure-palette,
+      tertiary: mat.$blue-palette,
+    ),
+    typography: (
+      plain-family: ('IBM Plex Sans', system-ui, sans-serif),
+      brand-family: ('IBM Plex Sans', system-ui, sans-serif),
+      bold-weight: 600,
+      medium-weight: 500,
+      regular-weight: 400,
+    ),
+    density: 0,
+  ));
+}
+
+// ---- Force Material system colors onto the Aviso tokens (exact brand) ----
+:root {
+  --mat-sys-primary: var(--accent);
+  --mat-sys-on-primary: var(--text-on-accent);
+  --mat-sys-primary-container: var(--accent-weak);
+  --mat-sys-on-primary-container: var(--accent-text);
+  --mat-sys-error: var(--red-600);
+  --mat-sys-surface: var(--surface-card);
+  --mat-sys-on-surface: var(--text-strong);
+  --mat-sys-on-surface-variant: var(--text-muted);
+  --mat-sys-outline: var(--border-default);
+  --mat-sys-outline-variant: var(--border-subtle);
+  --mat-sys-background: var(--surface-page);
+  --mat-sys-corner-small: var(--radius-md);
+  --mat-sys-corner-medium: var(--radius-lg);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-page);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+}
+
+// Quiet, cool scrollbars to match the design.
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gray-200);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-300);
+}
+
+// ---- Mono numerals helper (IDs, dates, amounts align in tables) ----
+.mono {
+  font-family: var(--font-mono);
+}
+
+// Snackbar (Toast) tones — surfaced via panelClass.
+.aviso-toast {
+  --mdc-snackbar-container-color: var(--surface-inverse);
+  --mdc-snackbar-supporting-text-color: var(--text-inverse);
+}
+.aviso-toast.tone-success { --mdc-snackbar-container-color: var(--green-700); }
+.aviso-toast.tone-error { --mdc-snackbar-container-color: var(--red-700); }
+.aviso-toast.tone-warning { --mdc-snackbar-container-color: var(--violet-700); }
+.aviso-toast.tone-info { --mdc-snackbar-container-color: var(--blue-700); }
+
+// ============================================================
+//  Shared chrome classes — reused across every screen so the look is one
+//  centralized definition (card surfaces, headers, eyebrows, path banners).
+// ============================================================
+
+.av-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+.av-card-pad {
+  padding: 22px;
+}
+
+.page-title {
+  font-size: var(--text-h1-size);
+  line-height: var(--text-h1-lh);
+  letter-spacing: var(--text-h1-ls);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+  margin: 0;
+}
+.page-sub {
+  font-size: var(--text-body-size);
+  color: var(--text-muted);
+  margin: 7px 0 0;
+}
+.section-title {
+  font-size: var(--text-h3-size);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+// Uppercase overline label (field eyebrows: "CENTRU DE COST")
+.eyebrow {
+  font-size: var(--text-overline-size);
+  line-height: var(--text-overline-lh);
+  letter-spacing: var(--text-overline-ls);
+  text-transform: uppercase;
+  font-weight: var(--weight-semibold);
+  color: var(--text-subtle);
+}
+
+// Routing path banners (Referat nou + detail)
+.path-banner {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm-size);
+  line-height: 1.5;
+}
+.path-banner .tag {
+  font-size: var(--text-overline-size);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: #fff;
+  border-radius: var(--radius-pill);
+  padding: 3px 9px;
+  white-space: nowrap;
+  flex: none;
+}
+.path-banner.short {
+  background: var(--teal-50);
+  border: 1px solid var(--teal-200);
+  color: var(--teal-800);
+}
+.path-banner.short .tag {
+  color: var(--teal-700);
+  border: 1px solid var(--teal-200);
+}
+.path-banner.full {
+  background: var(--blue-50);
+  border: 1px solid var(--accent-weak-border);
+  color: var(--blue-800);
+}
+.path-banner.full .tag {
+  color: var(--accent-text);
+  border: 1px solid var(--accent-weak-border);
+}
+
+// Link-style button (text actions like "Schimbă rolul", "Ai uitat parola?")
+.av-link {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent-text);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm-size);
+  font-family: inherit;
+}
+.av-link:hover {
+  text-decoration: underline;
+}
+

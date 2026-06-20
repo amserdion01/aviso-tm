@@ -1,0 +1,135 @@
+@if (referat(); as r) {
+  <div class="detail">
+    <button type="button" class="back-link" (click)="back()">
+      <app-icon name="arrow-left" [size]="16" [strokeWidth]="2" />
+      Înapoi la referate
+    </button>
+
+    <div class="grid">
+      <!-- LEFT column -->
+      <div class="col-main">
+        <!-- Header card -->
+        <section class="av-card av-card-pad">
+          <div class="head-row">
+            <div class="head-id">
+              <div class="ref-code mono">{{ shortCode() }}</div>
+              <h2 class="articol">{{ r.articol }}</h2>
+            </div>
+            @if (statusKey(); as key) {
+              <app-status-badge [status]="key" />
+            }
+          </div>
+
+          <div class="fields">
+            <div class="field">
+              <div class="eyebrow">Solicitant</div>
+              <div class="field-val">{{ r.requester?.name ?? '—' }}</div>
+            </div>
+            <div class="field">
+              <div class="eyebrow">Centru de cost</div>
+              <div class="field-val">{{ r.centruCost }}</div>
+            </div>
+            <div class="field">
+              <div class="eyebrow">Cantitate</div>
+              <div class="field-val mono">{{ r.cantitate }}</div>
+            </div>
+            <div class="field">
+              <div class="eyebrow">Valoare estimată</div>
+              <div class="field-val mono strong">{{ r.valoareLei | lei }}</div>
+            </div>
+            <div class="field">
+              <div class="eyebrow">Data</div>
+              <div class="field-val mono">{{ r.createdAt | dataRo }}</div>
+            </div>
+            <div class="field">
+              <div class="eyebrow">Traseu</div>
+              <div class="field-val">{{ pathLabel() }}</div>
+            </div>
+          </div>
+
+          <div class="justificare">
+            <div class="eyebrow">Justificare</div>
+            <div class="just-body">{{ r.justificare }}</div>
+          </div>
+        </section>
+
+        <!-- Stepper card -->
+        <section class="av-card av-card-pad">
+          <div class="stepper-head">
+            <div class="section-title">Traseu de avizare</div>
+            <div class="path-mini">{{ pathLabel() }}</div>
+          </div>
+          <app-stepper [steps]="stepperSteps()" />
+          <div class="path-note">{{ pathSub() }}</div>
+        </section>
+
+        <!-- Istoric card -->
+        <section class="av-card av-card-pad">
+          <div class="section-title istoric-title">Istoric</div>
+          <app-audit-timeline [events]="auditEvents()" />
+        </section>
+      </div>
+
+      <!-- RIGHT column — sticky action panel -->
+      <aside class="col-aside">
+        <div class="av-card action-card">
+          <div class="section-title">Acțiune</div>
+
+          @if (canAct()) {
+            <div class="step-line">
+              Pasul tău:
+              <strong>{{ waitingRole() ? ROLE_LABEL[waitingRole()!] : '—' }}</strong>
+            </div>
+
+            @if (preselectNote()) {
+              <div class="action-note">{{ preselectNote() }}</div>
+            }
+
+            <mat-form-field appearance="outline" class="comment-field">
+              <mat-label>Comentariu</mat-label>
+              <textarea
+                #commentInput
+                matInput
+                rows="3"
+                [formControl]="commentCtrl"
+                placeholder="Adaugă un motiv sau o observație…"
+              ></textarea>
+              @if (commentCtrl.hasError('required')) {
+                <mat-error
+                  >Adaugă un comentariu pentru respingere sau trimitere înapoi.</mat-error
+                >
+              } @else {
+                <mat-hint>Obligatoriu la respingere sau trimitere înapoi.</mat-hint>
+              }
+            </mat-form-field>
+
+            <div class="actions">
+              <button mat-flat-button color="primary" class="act-btn" (click)="approve()">
+                <app-icon name="check" [size]="16" [strokeWidth]="2.25" />
+                Aprobă
+              </button>
+              <button mat-stroked-button class="act-btn" (click)="sendBack()">
+                <app-icon name="corner-up-left" [size]="16" [strokeWidth]="2.25" />
+                Trimite înapoi
+              </button>
+              <button mat-stroked-button class="act-btn btn-danger" (click)="reject()">
+                <app-icon name="x" [size]="16" [strokeWidth]="2.25" />
+                Respinge
+              </button>
+            </div>
+          } @else {
+            <div class="wait-msg">{{ waitMsg() }}</div>
+          }
+        </div>
+      </aside>
+    </div>
+  </div>
+} @else if (!loading()) {
+  <div class="detail empty">
+    <button type="button" class="back-link" (click)="back()">
+      <app-icon name="arrow-left" [size]="16" [strokeWidth]="2" />
+      Înapoi la referate
+    </button>
+    <div class="av-card av-card-pad not-found">Referatul nu a putut fi încărcat.</div>
+  </div>
+}

@@ -1,0 +1,21 @@
+{
+  "name": "aviso-tm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aviso TM — referat de necesitate approval workflow demo (water utility, Timișoara)",
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "api:install": "pnpm --filter api install",
+    "api:migrate": "pnpm --filter api prisma:migrate",
+    "api:seed": "pnpm --filter api seed",
+    "api:start": "pnpm --filter api start:dev",
+    "api:build": "pnpm --filter api build",
+    "web:start": "pnpm --filter web start",
+    "web:build": "pnpm --filter web build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.18.3"
+}

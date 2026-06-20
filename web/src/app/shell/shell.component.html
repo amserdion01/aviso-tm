@@ -1,0 +1,67 @@
+<div class="layout">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <a class="brand" routerLink="/inbox">
+      <img src="assets/aviso-mark.svg" width="26" height="26" alt="" />
+      <span class="wordmark">Aviso <span class="tm">TM</span></span>
+      <span class="org">{{ orgName }}</span>
+    </a>
+
+    <span class="spacer"></span>
+
+    <div class="role-switch">
+      <span class="eyebrow">Rol</span>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="role-select">
+        <mat-select [ngModel]="role()" (ngModelChange)="onRoleChange($event)" panelWidth="">
+          @for (r of roles; track r) {
+            <mat-option [value]="r">{{ roleLabel[r] }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <span class="divider"></span>
+
+    <button class="icon-btn" type="button" aria-label="Notificări">
+      <app-icon name="bell" [size]="18" />
+    </button>
+    <app-avatar [name]="userName()" size="sm" />
+  </header>
+
+  <div class="body">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="nav-label">Meniu</div>
+
+      <a class="nav-item" routerLink="/inbox" routerLinkActive="active">
+        <app-icon name="inbox" [size]="18" />
+        <span class="nav-text">Inboxul meu</span>
+        @if (inboxCount() > 0) {
+          <span class="count">{{ inboxCount() }}</span>
+        }
+      </a>
+      <a class="nav-item" routerLink="/referat-nou" routerLinkActive="active">
+        <app-icon name="file-plus" [size]="18" />
+        <span class="nav-text">Referat nou</span>
+      </a>
+      <a class="nav-item" routerLink="/toate" routerLinkActive="active">
+        <app-icon name="list" [size]="18" />
+        <span class="nav-text">Toate referatele</span>
+      </a>
+
+      <span class="spacer"></span>
+
+      <div class="whoami">
+        <div class="eyebrow">Conectat ca</div>
+        <div class="name">{{ userName() }}</div>
+        <div class="role">{{ roleText() }}</div>
+        <button class="av-link" type="button" (click)="logout()">Schimbă rolul</button>
+      </div>
+    </nav>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

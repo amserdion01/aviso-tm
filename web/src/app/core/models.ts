@@ -1,0 +1,145 @@
+// ============================================================
+//  Domain models — mirror the NestJS/Prisma API responses.
+//  Romanian labels and design "status keys" live here so every screen renders
+//  the workflow vocabulary consistently.
+// ============================================================
+
+export type Role =
+  | 'ANGAJAT'
+  | 'SEF_IERARHIC'
+  | 'ACHIZITII'
+  | 'DIR_ECONOMIC'
+  | 'DIR_GENERAL';
+
+export type ReferatStatus =
+  | 'IN_ASTEPTARE'
+  | 'APROBAT'
+  | 'RESPINS'
+  | 'TRIMIS_INAPOI'
+  | 'FINALIZAT';
+
+export type TaskStatus =
+  | 'PENDING'
+  | 'WAITING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SENT_BACK';
+
+/** Visual status keys used by the design's StatusBadge / Stepper. */
+export type StatusKey =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'sentback'
+  | 'finalized';
+
+export interface User {
+  id: string;
+  name: string;
+  role: Role;
+}
+
+export interface ApprovalTask {
+  id: string;
+  referatId: string;
+  stepOrder: number;
+  role: Role;
+  status: TaskStatus;
+  effectiveApproverId: string | null;
+  actedById: string | null;
+  actedAt: string | null;
+  comment: string | null;
+  effectiveApprover?: User | null;
+  actedBy?: User | null;
+}
+
+export interface Transition {
+  id: string;
+  referatId: string;
+  fromState: string | null;
+  toState: string;
+  actorId: string;
+  comment: string | null;
+  createdAt: string;
+  actor?: User;
+}
+
+export interface Referat {
+  id: string;
+  articol: string;
+  cantitate: number;
+  justificare: string;
+  centruCost: string;
+  valoareLei: number;
+  requesterId: string;
+  status: ReferatStatus;
+  createdAt: string;
+  requester?: User;
+  tasks: ApprovalTask[];
+  transitions: Transition[];
+}
+
+export interface CreateReferatPayload {
+  articol: string;
+  cantitate: number;
+  justificare: string;
+  centruCost: string;
+  valoareLei: number;
+  requesterId: string;
+}
+
+// ---- Ordered role list (the full approval chain order) ----
+export const ROLES: Role[] = [
+  'ANGAJAT',
+  'SEF_IERARHIC',
+  'ACHIZITII',
+  'DIR_ECONOMIC',
+  'DIR_GENERAL',
+];
+
+// ---- Romanian role labels (match the design copy) ----
+export const ROLE_LABEL: Record<Role, string> = {
+  ANGAJAT: 'Angajat',
+  SEF_IERARHIC: 'Șef ierarhic',
+  ACHIZITII: 'Birou Achiziții',
+  DIR_ECONOMIC: 'Director Economic',
+  DIR_GENERAL: 'Director General',
+};
+
+/** Compact role labels for the stepper. */
+export const ROLE_SHORT: Record<Role, string> = {
+  ANGAJAT: 'Angajat',
+  SEF_IERARHIC: 'Șef ierarhic',
+  ACHIZITII: 'Achiziții',
+  DIR_ECONOMIC: 'Dir. economic',
+  DIR_GENERAL: 'Dir. general',
+};
+
+// ---- Referat status → label + visual key ----
+export const STATUS_LABEL: Record<ReferatStatus, string> = {
+  IN_ASTEPTARE: 'În așteptare',
+  APROBAT: 'Aprobat',
+  RESPINS: 'Respins',
+  TRIMIS_INAPOI: 'Trimis înapoi',
+  FINALIZAT: 'Finalizat',
+};
+
+export const STATUS_KEY: Record<ReferatStatus, StatusKey> = {
+  IN_ASTEPTARE: 'pending',
+  APROBAT: 'approved',
+  RESPINS: 'rejected',
+  TRIMIS_INAPOI: 'sentback',
+  FINALIZAT: 'finalized',
+};
+
+/** Label per visual status key (used by the status legend on "Toate referatele"). */
+export const STATUS_KEY_LABEL: Record<StatusKey, string> = {
+  pending: 'În așteptare',
+  approved: 'Aprobat',
+  rejected: 'Respins',
+  sentback: 'Trimis înapoi',
+  finalized: 'Finalizat',
+};
+
+/** Whether a value routes the full (≥ threshold) or short chain — display only. */
+export const APPROVAL_THRESHOLD_LEI = 5000;

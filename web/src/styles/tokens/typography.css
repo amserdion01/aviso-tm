@@ -1,0 +1,56 @@
+/* ============================================================
+   Aviso — Typography tokens
+   IBM Plex Sans (UI + display) / IBM Plex Mono (IDs, dates, codes).
+   Strong Romanian diacritic coverage (ș, ț, ă, î, â).
+   ============================================================ */
+
+:root {
+  /* Families */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Weights */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* Type scale — desktop-first, px-based.
+     Pairs: size / line-height / tracking */
+  --text-display-size: 30px;
+  --text-display-lh:   38px;
+  --text-display-ls:   -0.02em;
+
+  --text-h1-size: 24px;
+  --text-h1-lh:   32px;
+  --text-h1-ls:   -0.015em;
+
+  --text-h2-size: 20px;
+  --text-h2-lh:   28px;
+  --text-h2-ls:   -0.01em;
+
+  --text-h3-size: 16px;
+  --text-h3-lh:   24px;
+  --text-h3-ls:   -0.005em;
+
+  --text-body-lg-size: 16px;
+  --text-body-lg-lh:   24px;
+
+  --text-body-size: 14px;   /* default UI text */
+  --text-body-lh:   21px;
+
+  --text-sm-size: 13px;
+  --text-sm-lh:   19px;
+
+  --text-caption-size: 12px;
+  --text-caption-lh:   16px;
+  --text-caption-ls:   0.005em;
+
+  /* Eyebrow / overline — uppercase labels */
+  --text-overline-size: 11px;
+  --text-overline-lh:   14px;
+  --text-overline-ls:   0.08em;
+
+  --text-mono-size: 13px;
+  --text-mono-lh:   18px;
+}

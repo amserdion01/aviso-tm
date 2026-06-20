@@ -1,0 +1,204 @@
+:host {
+  display: block;
+}
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Top bar ---- */
+.topbar {
+  height: var(--app-topbar-h);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--border-default);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+}
+.brand:hover {
+  text-decoration: none;
+}
+.wordmark {
+  font-size: 17px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+.wordmark .tm {
+  color: var(--accent);
+}
+.org {
+  font-size: var(--text-overline-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--gray-100);
+  border-radius: var(--radius-pill);
+  padding: 3px 9px;
+  margin-left: 5px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.role-switch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.role-select {
+  width: 208px;
+}
+
+.divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border-default);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.icon-btn:hover {
+  background: var(--surface-sunken);
+  color: var(--text-body);
+}
+
+/* ---- Body / sidebar ---- */
+.body {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+}
+
+.sidebar {
+  width: var(--app-sidebar-w);
+  flex: none;
+  background: var(--surface-card);
+  border-right: 1px solid var(--border-default);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: sticky;
+  top: var(--app-topbar-h);
+  height: calc(100vh - var(--app-topbar-h));
+}
+
+.nav-label {
+  font-size: var(--text-overline-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  padding: 6px 12px 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: var(--radius-lg);
+  color: var(--text-body);
+  text-decoration: none;
+  font-size: var(--text-body-size);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.nav-item:hover {
+  background: var(--surface-sunken);
+  text-decoration: none;
+}
+.nav-item.active {
+  background: var(--accent-weak);
+  color: var(--accent-text);
+  font-weight: var(--weight-semibold);
+}
+.nav-text {
+  flex: 1;
+}
+.count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--text-caption-size);
+  font-weight: var(--weight-semibold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.whoami {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  background: var(--gray-25);
+}
+.whoami .name {
+  font-size: var(--text-body-size);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+.whoami .role {
+  font-size: var(--text-caption-size);
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.whoami .av-link {
+  margin-top: 11px;
+  font-size: var(--text-caption-size);
+}
+
+/* ---- Content ---- */
+.content {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 32px;
+  overflow: auto;
+}
+
+/* Compact the Material outline select to the 32px top-bar control. */
+.role-select ::ng-deep .mat-mdc-text-field-wrapper {
+  background: var(--surface-card);
+}
+.role-select ::ng-deep .mat-mdc-form-field-infix {
+  min-height: 32px;
+  padding: 4px 0;
+}
+.role-select ::ng-deep .mdc-notched-outline__leading,
+.role-select ::ng-deep .mdc-notched-outline__notch,
+.role-select ::ng-deep .mdc-notched-outline__trailing {
+  border-color: var(--border-default);
+}

@@ -1,0 +1,105 @@
+:host {
+  display: block;
+}
+
+.toate {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ---- Status legend ---- */
+.toate__legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-6) 0;
+}
+
+.toate__legend .eyebrow {
+  margin-right: var(--space-2);
+}
+
+/* ---- Card wrapping the table (padding removed so the table sits flush) ---- */
+.toate__card {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ---- Table (mirrors the inbox table) ---- */
+.toate__table {
+  width: 100%;
+  background: transparent;
+}
+
+// Header cells: eyebrow style.
+.toate__table th.mat-mdc-header-cell {
+  font-family: var(--font-sans);
+  font-size: var(--text-overline-size);
+  line-height: var(--text-overline-lh);
+  letter-spacing: var(--text-overline-ls);
+  text-transform: uppercase;
+  font-weight: var(--weight-semibold);
+  color: var(--text-subtle);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+}
+
+// Body cells.
+.toate__table td.mat-mdc-cell {
+  font-size: var(--text-body-size);
+  color: var(--text-body);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+// Right-aligned columns (Valoare).
+.toate__table th.mat-mdc-header-cell.num,
+.toate__table td.mat-mdc-cell.num {
+  text-align: right;
+}
+
+// Last row: no trailing divider.
+.toate__table tr.toate__row:last-of-type td.mat-mdc-cell {
+  border-bottom: none;
+}
+
+.toate__row {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.toate__row:hover {
+  background: var(--surface-hover);
+}
+
+/* ---- Cell content (matches inbox) ---- */
+.cell-ref__code {
+  font-size: var(--text-sm-size);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.cell-ref__date {
+  font-size: 11px;
+  color: var(--text-subtle);
+  margin-top: 2px;
+}
+
+.cell-strong {
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.cell-muted {
+  font-size: var(--text-caption-size);
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.cell-val {
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}

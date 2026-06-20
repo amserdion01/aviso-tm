@@ -1,0 +1,137 @@
+/* ============================================================
+   Aviso — Color tokens
+   Calm water-blue primary, cool slate neutrals, clear status hues.
+   Base ramps first, semantic aliases at the bottom.
+   ============================================================ */
+
+:root {
+  /* --- Primary: water blue (azure) --- */
+  --blue-50:  #ECF3FA;
+  --blue-100: #D4E6F4;
+  --blue-200: #A9CCE8;
+  --blue-300: #76AAD6;
+  --blue-400: #4486BE;
+  --blue-500: #246CA6;
+  --blue-600: #155A8E;  /* primary action */
+  --blue-700: #114B77;
+  --blue-800: #0F3C5F;
+  --blue-900: #0C2E48;
+
+  /* --- Neutrals: cool slate --- */
+  --gray-0:   #FFFFFF;
+  --gray-25:  #FAFBFC;
+  --gray-50:  #F4F6F8;
+  --gray-100: #E9EDF1;
+  --gray-200: #DBE1E7;
+  --gray-300: #C4CCD4;
+  --gray-400: #9CA7B1;
+  --gray-500: #6C7884;
+  --gray-600: #4F5A65;
+  --gray-700: #38424B;
+  --gray-800: #232B32;
+  --gray-900: #141A1F;
+
+  /* --- Status: success / Aprobat --- */
+  --green-50:  #E7F5EC;
+  --green-100: #C8E8D3;
+  --green-200: #95D3AC;
+  --green-600: #1E8A4D;
+  --green-700: #166E3D;
+  --green-800: #11542F;
+
+  /* --- Status: warning / În așteptare --- */
+  --amber-50:  #FBF1DA;
+  --amber-100: #F6E1B0;
+  --amber-200: #EFC971;
+  --amber-600: #9A6A12;
+  --amber-700: #7E560D;
+  --amber-800: #5F410A;
+
+  /* --- Status: danger / Respins --- */
+  --red-50:  #FBEAE8;
+  --red-100: #F6D0CC;
+  --red-200: #EDA8A1;
+  --red-600: #C23A2F;
+  --red-700: #9F2C23;
+  --red-800: #7C211A;
+
+  /* --- Status: rework / Trimis înapoi --- */
+  --violet-50:  #F0EDFA;
+  --violet-100: #DDD6F2;
+  --violet-200: #BFB1E6;
+  --violet-600: #6249BC;
+  --violet-700: #4F3A98;
+  --violet-800: #3C2C73;
+
+  /* --- Status: finalized / Finalizat --- */
+  --teal-50:  #E1F3F1;
+  --teal-100: #BFE6E1;
+  --teal-200: #87CFC7;
+  --teal-600: #0E807A;
+  --teal-700: #0A6661;
+  --teal-800: #074D49;
+
+  /* ============================================================
+     Semantic aliases — reference these in components.
+     ============================================================ */
+
+  /* Text */
+  --text-strong:  var(--gray-900);
+  --text-body:    var(--gray-700);
+  --text-muted:   var(--gray-500);
+  --text-subtle:  var(--gray-400);
+  --text-inverse: var(--gray-0);
+  --text-link:    var(--blue-600);
+  --text-on-accent: #FFFFFF;
+
+  /* Surfaces */
+  --surface-page:    var(--gray-50);
+  --surface-card:    var(--gray-0);
+  --surface-sunken:  var(--gray-100);
+  --surface-hover:   var(--gray-50);
+  --surface-active:  var(--gray-100);
+  --surface-inverse: var(--gray-900);
+
+  /* Borders */
+  --border-subtle:  var(--gray-100);
+  --border-default: var(--gray-200);
+  --border-strong:  var(--gray-300);
+  --border-focus:   var(--blue-500);
+
+  /* Accent (primary) */
+  --accent:        var(--blue-600);
+  --accent-hover:  var(--blue-700);
+  --accent-active: var(--blue-800);
+  --accent-weak:   var(--blue-50);
+  --accent-weak-border: var(--blue-200);
+  --accent-text:   var(--blue-700);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(36, 108, 166, 0.35);
+
+  /* Status — semantic trios (weak bg / border / text + solid) */
+  --status-pending-bg:     var(--amber-50);
+  --status-pending-border: var(--amber-200);
+  --status-pending-text:   var(--amber-700);
+  --status-pending-solid:  var(--amber-600);
+
+  --status-approved-bg:     var(--green-50);
+  --status-approved-border: var(--green-200);
+  --status-approved-text:   var(--green-700);
+  --status-approved-solid:  var(--green-600);
+
+  --status-rejected-bg:     var(--red-50);
+  --status-rejected-border: var(--red-200);
+  --status-rejected-text:   var(--red-700);
+  --status-rejected-solid:  var(--red-600);
+
+  --status-sentback-bg:     var(--violet-50);
+  --status-sentback-border: var(--violet-200);
+  --status-sentback-text:   var(--violet-700);
+  --status-sentback-solid:  var(--violet-600);
+
+  --status-finalized-bg:     var(--teal-50);
+  --status-finalized-border: var(--teal-200);
+  --status-finalized-text:   var(--teal-700);
+  --status-finalized-solid:  var(--teal-600);
+}
