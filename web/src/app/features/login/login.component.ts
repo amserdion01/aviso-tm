@@ -17,12 +17,13 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 
+import { ApiService } from '../../core/api.service';
 import { ROLE_LABEL, User } from '../../core/models';
 import { SessionService } from '../../core/session.service';
 import { AvatarComponent } from '../../shared/avatar.component';
 import { IconComponent } from '../../shared/icon.component';
 
-/** Demo account, derived from a seeded user. */
+/** Demo account row, from the public user roster. */
 interface DemoAccount {
   user: User;
   name: string;
@@ -30,7 +31,6 @@ interface DemoAccount {
   email: string;
 }
 
-const DEMO_PASSWORD = 'apatim2026';
 const EMAIL_RE = /.+@.+\..+/;
 
 interface LoginForm {
@@ -40,10 +40,9 @@ interface LoginForm {
 }
 
 /**
- * Autentificare — faked-auth login. Picking a role (via the demo accounts or by
- * typing a known email) sets the acting role on the session and enters the app.
- * Any non-empty password is accepted; this is a demo. A reactive form drives the
- * field validation so Material renders the inline errors.
+ * Autentificare — REAL login: email + password against POST /auth/login (JWT).
+ * The demo rows fill only the email; the password is typed by the user (the
+ * demo password is documented in the README, never in code).
  */
 @Component({
   selector: 'app-login',
@@ -63,10 +62,12 @@ interface LoginForm {
 })
 export class LoginComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly api = inject(ApiService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
 
   readonly loginError = signal('');
+  readonly submitting = signal(false);
   readonly accounts = signal<DemoAccount[]>([]);
 
   readonly form = this.fb.group<LoginForm>({
@@ -82,28 +83,26 @@ export class LoginComponent {
   });
 
   constructor() {
-    // Clear the "account not found" banner as soon as the user edits anything.
+    // Clear the error banner as soon as the user edits anything.
     this.form.valueChanges.subscribe(() => {
       if (this.loginError()) this.loginError.set('');
     });
-    void this.init();
+    // Load the public demo roster (emails shown pre-auth by design).
+    this.api.getUsers().subscribe((users) => {
+      this.accounts.set(
+        users.map((user) => ({
+          user,
+          name: user.name,
+          roleLabel: ROLE_LABEL[user.role],
+          email: user.email,
+        })),
+      );
+    });
   }
 
-  private async init(): Promise<void> {
-    const users = await this.session.ensureUsers();
-    const accounts: DemoAccount[] = users.map((user) => ({
-      user,
-      name: user.name,
-      roleLabel: ROLE_LABEL[user.role],
-      email: this.session.emailFor(user),
-    }));
-    this.accounts.set(accounts);
-    // No autologin: the form starts empty. The user picks a demo account (which
-    // fills the credentials) or types a known email, then submits.
-  }
-
+  /** Demo row click fills ONLY the email — the password is always typed. */
   fillAccount(account: DemoAccount): void {
-    this.form.patchValue({ email: account.email, password: DEMO_PASSWORD });
+    this.form.patchValue({ email: account.email });
     this.form.markAsUntouched();
     this.loginError.set('');
   }
@@ -114,18 +113,19 @@ export class LoginComponent {
       return;
     }
 
-    const entered = this.form.controls.email.value.trim().toLowerCase();
-    const account = this.accounts().find(
-      (a) => a.email.toLowerCase() === entered,
-    );
-    if (!account) {
-      this.loginError.set(
-        'Cont inexistent. Încearcă unul dintre conturile demo de mai jos.',
-      );
-      return;
-    }
-
-    this.session.setRole(account.user.role);
-    void this.router.navigate(['/inbox']);
+    const { email, password } = this.form.getRawValue();
+    this.submitting.set(true);
+    this.session
+      .login(email.trim(), password)
+      .then(() => {
+        this.submitting.set(false);
+        void this.router.navigate(['/inbox']);
+      })
+      .catch(() => {
+        this.submitting.set(false);
+        this.loginError.set(
+          'Email sau parolă incorecte. Parola demo este în README-ul proiectului.',
+        );
+      });
   }
 }

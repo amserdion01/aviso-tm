@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Aviso TM
 
 Internal **"referat de necesitate"** (requisition) approval-workflow **demo** for a water
-utility in **Timișoara**. Clickable proposal demo with a **REAL backend** but **NO real
-authentication** — the acting user/role is faked and sent from the client on every request.
+utility in **Timișoara**, prepared for public deploy: **real authentication** (email +
+bcrypt password → JWT, 8h) — the acting identity comes exclusively from the token.
 The entire UI is in **Romanian**.
 
 pnpm workspace monorepo, **built and verified**:
@@ -69,8 +69,11 @@ The read/write split is the thing to understand first:
   advances the workflow. `act()` and `create()` both do this.
 - **`Transition` is append-only** — code only ever INSERTs; never UPDATE/DELETE.
 - **Money is integer lei** (`valoareLei: Int`) — never a float.
-- **Faked auth**: the acting user id comes from the request body/query. `act()` still enforces
-  that the acting user's role matches the active step's role (403 otherwise).
+- **Real auth (JWT)**: every route requires `Authorization: Bearer <jwt>` via a global guard
+  (`api/src/auth/jwt-auth.guard.ts`) except routes marked `@Public()` (only `POST /auth/login`
+  and `GET /users`). The acting identity comes from the token (`@CurrentUser()`) — **no user ids
+  in payloads**. `act()` still enforces that the actor's role matches the active step (403).
+  `@Roles(...)` restricts admin routes (workflow editing → `DIR_GENERAL`).
 
 **The state machine** (in `act()`):
 - Active step = the single `ApprovalTask` with status `WAITING`; the rest start `PENDING`.
@@ -84,7 +87,9 @@ The read/write split is the thing to understand first:
 `referate/dto/` are the validation contract.
 
 ### Domain model (Prisma — `api/prisma/schema.prisma`)
-- **User**(id, name, role) — roles: `ANGAJAT`, `SEF_IERARHIC`, `IT`, `SSM`, `ACHIZITII`, `DIR_ECONOMIC`, `DIR_GENERAL`.
+- **User**(id, name, **email** `@unique`, **passwordHash** (bcrypt), role) — roles: `ANGAJAT`,
+  `SEF_IERARHIC`, `IT`, `SSM`, `ACHIZITII`, `DIR_ECONOMIC`, `DIR_GENERAL`. Never return
+  `passwordHash` from any endpoint (use explicit `select`s).
   (`IT` and `SSM` are the approvers for the conditional flag steps.)
 - **Referat**(id, articol, cantitate, justificare, centruCost, valoareLei `Int`, **necesitaIt**, **necesitaSsm**, requesterId, **workflowId?**, status, createdAt)
   — status: `IN_ASTEPTARE` | `APROBAT` | `RESPINS` | `TRIMIS_INAPOI` | `FINALIZAT`. The two boolean
@@ -101,43 +106,53 @@ The read/write split is the thing to understand first:
   `IN_ASTEPTARE` / `TRIMIS_INAPOI`; no delete (demo). Uploads do NOT write a `Transition`.
 
 ### Endpoints (REST, JSON)
-- `GET  /users` — all users (backs the role switcher).
-- `GET  /referate?role=...` — inbox: referate with a `WAITING` task for that role.
+All routes require `Authorization: Bearer <jwt>` except the two marked public. Identity =
+token user; **no user ids travel in payloads**.
+- `POST /auth/login` — **public**; body `{ email, parola }` → `{ token, user }` (JWT, 8h).
+- `GET  /auth/me` — the authenticated user's profile.
+- `GET  /users` — **public**; demo roster for the login screen (public fields only, never hashes).
+- `GET  /referate` — inbox: referate with a `WAITING` task for the token user's role.
 - `GET  /referate/all` — overview list with statuses (declared before `:id` to avoid route capture).
 - `GET  /referate/:id` — full detail + tasks + transitions (istoric).
-- `POST /referate` — create + materialize chain from the active workflow. Body adds optional
-  `necesitaIt` / `necesitaSsm` booleans (routing flags).
-- `POST /referate/:id/approve` — body `{ actingUserId, comment? }`.
-- `POST /referate/:id/reject` — body `{ actingUserId, comment (required) }`.
-- `POST /referate/:id/send-back` — body `{ actingUserId, comment (required) }`.
-- `GET  /referate/:id/pdf` — the referat as a print-ready A4 PDF, any state, no auth gate
-  (served `inline`). Template: `referate/referat-document.ts` (self-contained HTML, RO labels);
-  conversion: `pdf/pdf.service.ts` (Puppeteer, launched per request).
-- `POST /referate/:id/atasamente` — multipart (`files` max 5 × 10 MB + `actingUserId`); content-type
-  whitelist (pdf/images/office/text). Handled by `referate/attachments.service.ts` +
+- `POST /referate` — create + materialize chain from the active workflow; requester = token user.
+  Body has optional `necesitaIt` / `necesitaSsm` booleans (routing flags).
+- `POST /referate/:id/approve` — body `{ comment? }`; actor = token user.
+- `POST /referate/:id/reject` — body `{ comment (required) }`.
+- `POST /referate/:id/send-back` — body `{ comment (required) }`.
+- `GET  /referate/:id/pdf` — the referat as a print-ready A4 PDF (any state; frontend fetches it
+  as an authenticated Blob). Template: `referate/referat-document.ts` (self-contained HTML, RO
+  labels); conversion: `pdf/pdf.service.ts` (Puppeteer, launched per request).
+- `POST /referate/:id/atasamente` — multipart (`files` max 5 × 10 MB); uploader = token user;
+  content-type whitelist (pdf/images/office/text). Handled by `referate/attachments.service.ts` +
   `storage/r2.service.ts` (S3 client for R2, lazy-init so missing `R2_*` env vars 503 only here).
-- `GET  /referate/:id/atasamente/:attId/download` — 302 redirect to a presigned R2 GET URL (15 min).
+- `GET  /referate/:id/atasamente/:attId/download` — returns `{ url }` (presigned R2 GET, 15 min);
+  JSON instead of a 302 so the authenticated frontend fetches it with the Bearer header and then
+  navigates top-level to the URL (no CORS needed on the bucket).
 - `GET  /workflows` — list workflows with step counts.
 - `GET  /workflows/active` — the active workflow + ordered steps (drives new referate + the live preview).
 - `GET  /workflows/:id` — one workflow + ordered steps.
-- `PUT  /workflows/:id/steps` — replace the entire ordered step list in one transaction (add/remove/reorder/edit).
+- `PUT  /workflows/:id/steps` — replace the entire ordered step list in one transaction — `@Roles(DIR_GENERAL)`.
 
 ### Frontend (`/web`) — Angular standalone + signals
 - **`core/api.service.ts`** — the single HTTP gateway for every API call. Base URL from
   `environments/environment.ts`. Add all new calls here, nowhere else.
-- **`core/session.service.ts`** — the faked-auth session, signal-based. Holds the loaded users
-  and `actingRole` (persisted to `localStorage`); `currentUser` is the seeded user for that role.
-  Exposes `inboxCount` (drives the nav badge) — call `refreshInboxCount()` after any workflow
-  action. `core/auth.guard.ts` gates the shell on an acting role being set.
-- **`shell/`** = app shell (top bar with role switcher + left nav). Routes lazy-load each feature
-  (`app.routes.ts`). Feature screens live in `features/`: `login` (Autentificare — **no autologin**;
-  the form starts empty, demo-account rows fill credentials on click), `inbox` (Inboxul meu),
-  `referat-nou` (Referat nou — includes the IT/SSM flag checkboxes + a live routing preview
-  computed from the active workflow), `detaliu` (Detaliu referat — the approval stepper),
-  `toate` (Toate referatele), `admin` (**Administrare flux** at `/admin/flux` — edit the active
-  workflow's steps; the nav entry is shown only when the acting role is `DIR_GENERAL`). `shared/`
-  holds reusable presentational components (status badge, stepper, audit timeline, avatar, empty
-  state, icon). Icons are inline SVG via `shared/icon.component.ts` (add glyphs to its registry).
+- **`core/session.service.ts`** — the JWT session, signal-based. Holds the `token` (persisted to
+  `localStorage` as `aviso.token`) and `currentUser` loaded from `GET /auth/me`; `login()`,
+  `logout()`, `ensureUser()` (used by the guard). Exposes `inboxCount` (drives the nav badge) —
+  call `refreshInboxCount()` after any workflow action. **`core/auth.interceptor.ts`** attaches
+  the Bearer header to every call and logs out + redirects on 401 (registered in `app.config.ts`).
+  `core/auth.guard.ts` allows a route only with a valid session (loads `/auth/me`).
+- **`shell/`** = app shell (top bar with identity + notifications + Deconectare; **no role
+  switcher** — switching roles = logout + login with another demo account). Routes lazy-load each
+  feature (`app.routes.ts`). Feature screens live in `features/`: `login` (Autentificare — real
+  email + password login; demo-account rows fill only the email, the demo password lives ONLY in
+  the README), `inbox` (Inboxul meu), `referat-nou` (Referat nou — IT/SSM flag checkboxes + a live
+  routing preview computed from the active workflow), `detaliu` (Detaliu referat — the approval
+  stepper; PDF fetched as an authenticated Blob, attachments downloaded via `{ url }`), `toate`
+  (Toate referatele), `admin` (**Administrare flux** at `/admin/flux` — edit the active workflow's
+  steps; nav entry shown only when the logged-in user is `DIR_GENERAL`). `shared/` holds reusable
+  presentational components (status badge, stepper, audit timeline, avatar, empty state, icon).
+  Icons are inline SVG via `shared/icon.component.ts` (add glyphs to its registry).
 
 ### Theming — single source of truth
 Design tokens live in `web/src/styles/tokens/*.css` (colors, typography, spacing, elevation,
@@ -150,7 +165,9 @@ a real brand is a contained change there — do NOT scatter inline styles or per
 - Correct diacritics (ș, ț, ă, î, â) throughout. No emoji.
 
 ## Seed (`api/prisma/seed.ts`)
-`pnpm api:seed` **resets** the DB and seeds: one user per role (incl. `IT` and `SSM`), the active
+`pnpm api:seed` **resets** the DB and seeds: one user per role (incl. `IT` and `SSM`) with an
+`@apatim.ro` email and a shared bcrypt-hashed demo password (**plaintext ONLY in the README**;
+override via `DEMO_PASSWORD` env at seed time), the active
 **"Flux standard achiziții"** workflow (6 conditional steps: SEF → IT?/SSM? → ACHIZITII →
 DIR_ECONOMIC?/DIR_GENERAL? by value), and ~19 realistic Romanian referate spanning both value
 paths plus the IT/SSM flag branches (a couple mid-chain, one `FINALIZAT`, one `RESPINS`, one sent
@@ -164,6 +181,8 @@ append-only transition trail stay consistent. Examples: "Laptop Dell — 4.200 l
   app's `environment.ts` points there), so the API runs on **http://localhost:3001** by default.
 - `CORS_ORIGIN` — allowed origin (default `http://localhost:4200`).
 - `APPROVAL_THRESHOLD_LEI` — default threshold used by the seed (default 5000).
+- `JWT_SECRET` — **required**; signs the auth JWTs (8h; `JWT_EXPIRES` overrides). The API refuses
+  to boot without it.
 - `R2_ENDPOINT` (or `R2_ACCOUNT_ID`), `R2_ACCESS_KEY_ID` (alias `R2_ACCESS_KEY`),
   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — Cloudflare R2 (attachment storage). `R2_ENDPOINT` is the
   bucket's S3 API URL without the bucket path — required for jurisdiction buckets (e.g. `.eu.`).

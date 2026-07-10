@@ -28,13 +28,13 @@ export class WorkflowService {
    * becomes a task, in order. The chain, the first WAITING task, and the
    * creation Transition are all written in a single transaction.
    */
-  async create(dto: CreateReferatDto) {
+  async create(dto: CreateReferatDto, requesterId: string) {
     const requester = await this.prisma.user.findUnique({
-      where: { id: dto.requesterId },
+      where: { id: requesterId },
     });
     if (!requester) {
       throw new BadRequestException(
-        `Utilizatorul solicitant ${dto.requesterId} nu există.`,
+        `Utilizatorul solicitant ${requesterId} nu există.`,
       );
     }
 
@@ -111,16 +111,16 @@ export class WorkflowService {
     });
   }
 
-  async approve(id: string, dto: ApproveDto) {
-    return this.act(id, dto.actingUserId, dto.comment, 'APPROVE');
+  async approve(id: string, actingUserId: string, dto: ApproveDto) {
+    return this.act(id, actingUserId, dto.comment, 'APPROVE');
   }
 
-  async reject(id: string, dto: CommentRequiredDto) {
-    return this.act(id, dto.actingUserId, dto.comment, 'REJECT');
+  async reject(id: string, actingUserId: string, dto: CommentRequiredDto) {
+    return this.act(id, actingUserId, dto.comment, 'REJECT');
   }
 
-  async sendBack(id: string, dto: CommentRequiredDto) {
-    return this.act(id, dto.actingUserId, dto.comment, 'SEND_BACK');
+  async sendBack(id: string, actingUserId: string, dto: CommentRequiredDto) {
+    return this.act(id, actingUserId, dto.comment, 'SEND_BACK');
   }
 
   /**

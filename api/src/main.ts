@@ -4,6 +4,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
+  // Real auth signs JWTs with this secret — refuse to boot without one.
+  if (!process.env.JWT_SECRET) {
+    throw new Error(
+      'JWT_SECRET lipsește din environment (vezi api/.env.example).',
+    );
+  }
+
   const app = await NestFactory.create(AppModule);
 
   // Faked auth means no sessions; just allow the Angular dev origin.

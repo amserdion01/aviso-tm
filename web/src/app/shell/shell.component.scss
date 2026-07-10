@@ -57,13 +57,21 @@
   flex: 1;
 }
 
-.role-switch {
+/* Current user identity in the top bar (identity comes from the JWT login). */
+.whoami-top {
   display: flex;
-  align-items: center;
-  gap: 9px;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
 }
-.role-select {
-  width: 208px;
+.whoami-top__name {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm-size);
+  color: var(--text-body);
+}
+.whoami-top__role {
+  font-size: var(--text-caption-size);
+  color: var(--text-muted);
 }
 
 .divider {
@@ -208,16 +216,58 @@
   overflow: auto;
 }
 
-/* Compact the Material outline select to the 32px top-bar control. */
-.role-select ::ng-deep .mat-mdc-text-field-wrapper {
-  background: var(--surface-card);
+
+/* ---- Mobile (≤720px): hamburger + off-canvas drawer ---- */
+.hamburger {
+  display: none;
 }
-.role-select ::ng-deep .mat-mdc-form-field-infix {
-  min-height: 32px;
-  padding: 4px 0;
+
+.drawer-backdrop {
+  display: none;
 }
-.role-select ::ng-deep .mdc-notched-outline__leading,
-.role-select ::ng-deep .mdc-notched-outline__notch,
-.role-select ::ng-deep .mdc-notched-outline__trailing {
-  border-color: var(--border-default);
+
+@media (max-width: 720px) {
+  .hamburger {
+    display: inline-flex;
+  }
+
+  /* Identity moves into the drawer; the org chip doesn't fit. */
+  .org,
+  .whoami-top {
+    display: none;
+  }
+
+  .topbar {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  /* The sidebar becomes an off-canvas drawer above the content. */
+  .sidebar {
+    position: fixed;
+    top: var(--app-topbar-h);
+    left: 0;
+    bottom: 0;
+    height: auto;
+    z-index: 40;
+    width: min(300px, 84vw);
+    transform: translateX(-105%);
+    transition: transform var(--dur-fast, 150ms) var(--ease-standard, ease);
+    box-shadow: var(--shadow-md);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--app-topbar-h) 0 0 0;
+    z-index: 35;
+    background: rgba(15, 26, 42, 0.4);
+  }
+
+  .content {
+    padding: 16px;
+  }
 }

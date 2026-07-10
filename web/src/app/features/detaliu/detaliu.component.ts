@@ -151,24 +151,46 @@ export class DetaliuComponent {
     return s === 'IN_ASTEPTARE' || s === 'TRIMIS_INAPOI';
   });
 
-  attachmentUrl(attachmentId: string): string {
-    return this.api.attachmentDownloadUrl(this.id(), attachmentId);
+  /** Fetch the presigned R2 URL with auth, then navigate to it (download). */
+  downloadAttachment(attachmentId: string): void {
+    this.api.getAttachmentUrl(this.id(), attachmentId).subscribe({
+      next: ({ url }) => window.open(url, '_blank'),
+      error: () =>
+        this.snackBar.open('Fișierul nu a putut fi descărcat.', undefined, {
+          duration: 4000,
+          panelClass: ['aviso-toast', 'tone-error'],
+        }),
+    });
   }
 
-  /** Print-ready PDF of the referat — available to anyone, in any state. */
-  pdfUrl(): string {
-    return this.api.referatPdfUrl(this.id());
+  readonly pdfLoading = signal(false);
+
+  /** Fetch the PDF with auth as a Blob and open it in a new tab. */
+  openPdf(): void {
+    this.pdfLoading.set(true);
+    this.api.getPdfBlob(this.id()).subscribe({
+      next: (blob) => {
+        this.pdfLoading.set(false);
+        window.open(URL.createObjectURL(blob), '_blank');
+      },
+      error: () => {
+        this.pdfLoading.set(false);
+        this.snackBar.open('PDF-ul nu a putut fi generat.', undefined, {
+          duration: 4000,
+          panelClass: ['aviso-toast', 'tone-error'],
+        });
+      },
+    });
   }
 
   onAttachFiles(event: Event): void {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
-    const user = this.session.currentUser();
-    if (files.length === 0 || !user) return;
+    if (files.length === 0) return;
 
     this.uploadingFiles.set(true);
-    this.api.uploadAttachments(this.id(), files, user.id).subscribe({
+    this.api.uploadAttachments(this.id(), files).subscribe({
       next: (r) => {
         this.referat.set(r);
         this.uploadingFiles.set(false);
@@ -222,10 +244,10 @@ export class DetaliuComponent {
 
   readonly waitingRole = computed<Role | null>(() => this.waitingTask()?.role ?? null);
 
-  /** The acting role may decide only on the step that is WAITING for that role. */
+  /** The authenticated user may decide only on the step WAITING for their role. */
   readonly canAct = computed(() => {
     const w = this.waitingTask();
-    return !!w && w.role === this.session.actingRole();
+    return !!w && w.role === this.session.currentUser()?.role;
   });
 
   /** Tinted note copy for the preselected action (only while it can act). */
@@ -370,10 +392,9 @@ export class DetaliuComponent {
 
   approve(): void {
     const r = this.referat();
-    const user = this.session.currentUser();
-    if (!r || !user) return;
+    if (!r) return;
     const comment = this.commentCtrl.value.trim();
-    this.api.approve(r.id, user.id, comment || undefined).subscribe({
+    this.api.approve(r.id, comment || undefined).subscribe({
       next: () => {
         this.resetComment();
         this.reload();
@@ -386,9 +407,8 @@ export class DetaliuComponent {
 
   reject(): void {
     const r = this.referat();
-    const user = this.session.currentUser();
-    if (!r || !user || !this.requireComment()) return;
-    this.api.reject(r.id, user.id, this.commentCtrl.value.trim()).subscribe({
+    if (!r || !this.requireComment()) return;
+    this.api.reject(r.id, this.commentCtrl.value.trim()).subscribe({
       next: () => {
         this.resetComment();
         this.reload();
@@ -401,9 +421,8 @@ export class DetaliuComponent {
 
   sendBack(): void {
     const r = this.referat();
-    const user = this.session.currentUser();
-    if (!r || !user || !this.requireComment()) return;
-    this.api.sendBack(r.id, user.id, this.commentCtrl.value.trim()).subscribe({
+    if (!r || !this.requireComment()) return;
+    this.api.sendBack(r.id, this.commentCtrl.value.trim()).subscribe({
       next: () => {
         this.resetComment();
         this.reload();

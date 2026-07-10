@@ -11,10 +11,18 @@ import {
   ReferatStatus,
   TaskStatus,
 } from '@prisma/client';
+import { hashSync } from 'bcryptjs';
 import { APPROVAL_THRESHOLD_LEI } from '../src/config/workflow.config';
 import { applies, Condition, RoutingContext } from '../src/config/condition';
 
 const prisma = new PrismaClient();
+
+/**
+ * Shared demo password for every seeded account. Only the bcrypt hash reaches
+ * the database; the plaintext is documented ONLY in the README ("Conturi demo").
+ * Override at seed time with DEMO_PASSWORD=... pnpm api:seed.
+ */
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'ApaTM2026!';
 
 type SeedAction =
   | { kind: 'approve'; comment?: string }
@@ -33,14 +41,14 @@ interface SeedReferat {
   actions: SeedAction[];
 }
 
-const USERS: { name: string; role: Role }[] = [
-  { name: 'Andrei Popescu', role: Role.ANGAJAT },
-  { name: 'Maria Ionescu', role: Role.SEF_IERARHIC },
-  { name: 'Serviciul IT (Vlad Marin)', role: Role.IT },
-  { name: 'Responsabil SSM (Ioana Neagu)', role: Role.SSM },
-  { name: 'Birou Achiziții (Elena Dumitru)', role: Role.ACHIZITII },
-  { name: 'Radu Georgescu', role: Role.DIR_ECONOMIC },
-  { name: 'Cristina Munteanu', role: Role.DIR_GENERAL },
+const USERS: { name: string; email: string; role: Role }[] = [
+  { name: 'Andrei Popescu', email: 'andrei.popescu@apatim.ro', role: Role.ANGAJAT },
+  { name: 'Maria Ionescu', email: 'maria.ionescu@apatim.ro', role: Role.SEF_IERARHIC },
+  { name: 'Serviciul IT (Vlad Marin)', email: 'vlad.marin@apatim.ro', role: Role.IT },
+  { name: 'Responsabil SSM (Ioana Neagu)', email: 'ioana.neagu@apatim.ro', role: Role.SSM },
+  { name: 'Birou Achiziții (Elena Dumitru)', email: 'elena.dumitru@apatim.ro', role: Role.ACHIZITII },
+  { name: 'Radu Georgescu', email: 'radu.georgescu@apatim.ro', role: Role.DIR_ECONOMIC },
+  { name: 'Cristina Munteanu', email: 'cristina.munteanu@apatim.ro', role: Role.DIR_GENERAL },
 ];
 
 /**
@@ -327,8 +335,9 @@ async function main(): Promise<void> {
   await prisma.workflow.deleteMany();
   await prisma.user.deleteMany();
 
+  const passwordHash = hashSync(DEMO_PASSWORD, 10);
   const users = await Promise.all(
-    USERS.map((u) => prisma.user.create({ data: u })),
+    USERS.map((u) => prisma.user.create({ data: { ...u, passwordHash } })),
   );
   const userByRole = new Map(users.map((u) => [u.role, u]));
   const requester = userByRole.get(Role.ANGAJAT)!;

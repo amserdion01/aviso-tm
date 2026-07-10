@@ -1,6 +1,14 @@
 <div class="layout">
   <!-- TOP BAR -->
   <header class="topbar">
+    <button
+      class="icon-btn hamburger"
+      type="button"
+      aria-label="Meniu"
+      (click)="toggleDrawer()"
+    >
+      <app-icon name="menu" [size]="20" />
+    </button>
     <a class="brand" routerLink="/inbox">
       <img src="assets/aviso-mark.svg" width="26" height="26" alt="" />
       <span class="wordmark">Aviso <span class="tm">TM</span></span>
@@ -9,15 +17,9 @@
 
     <span class="spacer"></span>
 
-    <div class="role-switch">
-      <span class="eyebrow">Rol</span>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="role-select">
-        <mat-select [ngModel]="role()" (ngModelChange)="onRoleChange($event)" panelWidth="">
-          @for (r of roles; track r) {
-            <mat-option [value]="r">{{ roleLabel[r] }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+    <div class="whoami-top">
+      <span class="whoami-top__name">{{ userName() }}</span>
+      <span class="whoami-top__role">{{ roleText() }}</span>
     </div>
 
     <span class="divider"></span>
@@ -59,11 +61,25 @@
     </mat-menu>
 
     <app-avatar [name]="userName()" size="sm" />
+    <button
+      class="icon-btn"
+      type="button"
+      aria-label="Deconectare"
+      title="Deconectare"
+      (click)="logout()"
+    >
+      <app-icon name="log-out" [size]="18" />
+    </button>
   </header>
 
   <div class="body">
-    <!-- SIDEBAR -->
-    <nav class="sidebar">
+    <!-- Backdrop for the mobile drawer -->
+    @if (drawerOpen()) {
+      <div class="drawer-backdrop" (click)="closeDrawer()"></div>
+    }
+
+    <!-- SIDEBAR (off-canvas drawer on ≤720px) -->
+    <nav class="sidebar" [class.open]="drawerOpen()">
       <div class="nav-label">Meniu</div>
 
       <a class="nav-item" routerLink="/inbox" routerLinkActive="active">
@@ -94,7 +110,7 @@
         <div class="eyebrow">Conectat ca</div>
         <div class="name">{{ userName() }}</div>
         <div class="role">{{ roleText() }}</div>
-        <button class="av-link" type="button" (click)="logout()">Schimbă rolul</button>
+        <button class="av-link" type="button" (click)="logout()">Deconectare</button>
       </div>
     </nav>
 

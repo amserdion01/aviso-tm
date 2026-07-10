@@ -283,6 +283,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
   color: var(--accent-text);
   font-size: var(--text-sm-size);
   font-weight: var(--weight-semibold);
@@ -304,5 +309,27 @@
   }
   .col-aside {
     position: static;
+  }
+}
+
+/* ---- Phone (≤720px) ---- */
+@media (max-width: 720px) {
+  .fields {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .head-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .att-item {
+    flex-wrap: wrap;
+  }
+  .att-download {
+    margin-left: 25px; /* aligns under the name, past the paperclip */
   }
 }

@@ -39,9 +39,4 @@ export class CreateReferatDto {
   @IsOptional()
   @IsBoolean()
   necesitaSsm?: boolean;
-
-  /** Faked auth: the requester id is supplied by the client. */
-  @IsString()
-  @IsNotEmpty()
-  requesterId: string;
 }

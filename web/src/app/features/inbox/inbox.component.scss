@@ -147,3 +147,53 @@
   color: var(--text-strong);
   background: var(--surface-hover);
 }
+
+/* ---- Mobile cards (≤720px, driven by ViewportService.isMobile) ---- */
+.inbox__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ref-card {
+  padding: 14px;
+  cursor: pointer;
+}
+
+.ref-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ref-card__title {
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong, var(--text-body));
+  min-width: 0;
+}
+
+.ref-card__val {
+  flex: none;
+  font-weight: var(--weight-semibold);
+}
+
+.ref-card__meta {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: var(--text-sm-size);
+  color: var(--text-muted);
+}
+
+.ref-card__actions {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ref-card__actions .act-approve {
+  flex: 1;
+}

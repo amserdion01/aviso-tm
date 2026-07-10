@@ -1,26 +1,24 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
   Param,
   Post,
-  Query,
-  Redirect,
   StreamableFile,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { Role } from '@prisma/client';
 import { ReferateService } from './referate.service';
 import { WorkflowService } from './workflow.service';
 import { AttachmentsService, MAX_FILE_BYTES } from './attachments.service';
 import { renderReferatDocument } from './referat-document';
 import { PdfService } from '../pdf/pdf.service';
+import { AuthUser, CurrentUser } from '../auth/current-user.decorator';
 import { CreateReferatDto } from './dto/create-referat.dto';
 import { ApproveDto, CommentRequiredDto } from './dto/action.dto';
 
+/** All routes require a JWT (global guard); identity comes from the token. */
 @Controller('referate')
 export class ReferateController {
   constructor(
@@ -36,15 +34,10 @@ export class ReferateController {
     return this.referate.findAll();
   }
 
-  // GET /referate?role=... — inbox for a role.
+  // GET /referate — inbox for the authenticated user's role.
   @Get()
-  inbox(@Query('role') role?: string) {
-    if (!role || !(role in Role)) {
-      throw new BadRequestException(
-        `Parametrul "role" este obligatoriu și trebuie să fie unul dintre: ${Object.keys(Role).join(', ')}.`,
-      );
-    }
-    return this.referate.inboxForRole(role as Role);
+  inbox(@CurrentUser() user: AuthUser) {
+    return this.referate.inboxForRole(user.role);
   }
 
   // GET /referate/:id — full detail + tasks + transitions.
@@ -53,44 +46,40 @@ export class ReferateController {
     return this.referate.findOne(id);
   }
 
-  // POST /referate — create + materialize chain.
+  // POST /referate — create + materialize chain; requester = token user.
   @Post()
-  create(@Body() dto: CreateReferatDto) {
-    return this.workflow.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateReferatDto) {
+    return this.workflow.create(dto, user.id);
   }
 
   @Post(':id/approve')
-  approve(@Param('id') id: string, @Body() dto: ApproveDto) {
-    return this.workflow.approve(id, dto);
+  approve(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ApproveDto,
+  ) {
+    return this.workflow.approve(id, user.id, dto);
   }
 
   @Post(':id/reject')
-  reject(@Param('id') id: string, @Body() dto: CommentRequiredDto) {
-    return this.workflow.reject(id, dto);
+  reject(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CommentRequiredDto,
+  ) {
+    return this.workflow.reject(id, user.id, dto);
   }
 
   @Post(':id/send-back')
-  sendBack(@Param('id') id: string, @Body() dto: CommentRequiredDto) {
-    return this.workflow.sendBack(id, dto);
-  }
-
-  // POST /referate/:id/atasamente — multipart upload (max 5 files, 10 MB each).
-  @Post(':id/atasamente')
-  @UseInterceptors(
-    FilesInterceptor('files', 5, { limits: { fileSize: MAX_FILE_BYTES } }),
-  )
-  uploadAttachments(
+  sendBack(
     @Param('id') id: string,
-    @Body('actingUserId') actingUserId: string,
-    @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CommentRequiredDto,
   ) {
-    if (!actingUserId) {
-      throw new BadRequestException('Câmpul "actingUserId" este obligatoriu.');
-    }
-    return this.attachments.upload(id, actingUserId, files);
+    return this.workflow.sendBack(id, user.id, dto);
   }
 
-  // GET /referate/:id/pdf — the referat as a print-ready A4 PDF (any state, any caller).
+  // GET /referate/:id/pdf — the referat as a print-ready A4 PDF (any state).
   @Get(':id/pdf')
   async pdfDocument(@Param('id') id: string): Promise<StreamableFile> {
     const referat = await this.referate.findOne(id);
@@ -102,14 +91,28 @@ export class ReferateController {
     });
   }
 
-  // GET /referate/:id/atasamente/:attId/download — 302 to a presigned R2 URL.
+  // POST /referate/:id/atasamente — multipart upload; uploader = token user.
+  @Post(':id/atasamente')
+  @UseInterceptors(
+    FilesInterceptor('files', 5, { limits: { fileSize: MAX_FILE_BYTES } }),
+  )
+  uploadAttachments(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.attachments.upload(id, user.id, files);
+  }
+
+  // GET /referate/:id/atasamente/:attId/download — presigned R2 URL as JSON.
+  // (JSON instead of a 302 so the authenticated frontend can fetch it with the
+  // Bearer header and then navigate top-level to the URL — no CORS on R2.)
   @Get(':id/atasamente/:attId/download')
-  @Redirect()
   async downloadAttachment(
     @Param('id') id: string,
     @Param('attId') attId: string,
   ) {
     const url = await this.attachments.downloadUrl(id, attId);
-    return { url, statusCode: 302 };
+    return { url };
   }
 }

@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, Put } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { WorkflowsService } from './workflows.service';
+import { Roles } from '../auth/roles.decorator';
 import { SaveStepsDto } from './dto/save-steps.dto';
 
 @Controller('workflows')
@@ -25,6 +27,8 @@ export class WorkflowsController {
   }
 
   // PUT /workflows/:id/steps — replace the entire ordered step list.
+  // Only the Director General administers the approval flow.
+  @Roles(Role.DIR_GENERAL)
   @Put(':id/steps')
   saveSteps(@Param('id') id: string, @Body() dto: SaveStepsDto) {
     return this.workflows.saveSteps(id, dto);

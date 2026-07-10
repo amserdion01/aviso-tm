@@ -1,34 +1,49 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   CreateReferatPayload,
+  LoginResponse,
   Referat,
-  Role,
   User,
   Workflow,
   WorkflowStep,
 } from './models';
 
 /**
- * Single gateway for every HTTP call to the Aviso TM API.
- * Base URL comes from the environment. Auth is faked: the acting user id is
- * sent in the request body/query, never a session.
+ * Single gateway for every HTTP call to the Aviso TM API. The auth interceptor
+ * attaches the Bearer token; the acting identity always comes from the JWT on
+ * the server, so no user ids travel in payloads.
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
 
+  // ---- Auth ----
+
+  login(email: string, parola: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.base}/auth/login`, {
+      email,
+      parola,
+    });
+  }
+
+  me(): Observable<User> {
+    return this.http.get<User>(`${this.base}/auth/me`);
+  }
+
+  /** Public demo roster shown on the login screen. */
   getUsers(): Observable<User[]> {
     return this.http.get<User[]>(`${this.base}/users`);
   }
 
-  /** Inbox: referate with a WAITING task for the given role. */
-  getInbox(role: Role): Observable<Referat[]> {
-    const params = new HttpParams().set('role', role);
-    return this.http.get<Referat[]>(`${this.base}/referate`, { params });
+  // ---- Referate ----
+
+  /** Inbox: referate with a WAITING task for the authenticated user's role. */
+  getInbox(): Observable<Referat[]> {
+    return this.http.get<Referat[]>(`${this.base}/referate`);
   }
 
   getAll(): Observable<Referat[]> {
@@ -43,23 +58,20 @@ export class ApiService {
     return this.http.post<Referat>(`${this.base}/referate`, payload);
   }
 
-  approve(id: string, actingUserId: string, comment?: string): Observable<Referat> {
+  approve(id: string, comment?: string): Observable<Referat> {
     return this.http.post<Referat>(`${this.base}/referate/${id}/approve`, {
-      actingUserId,
       comment,
     });
   }
 
-  reject(id: string, actingUserId: string, comment: string): Observable<Referat> {
+  reject(id: string, comment: string): Observable<Referat> {
     return this.http.post<Referat>(`${this.base}/referate/${id}/reject`, {
-      actingUserId,
       comment,
     });
   }
 
-  sendBack(id: string, actingUserId: string, comment: string): Observable<Referat> {
+  sendBack(id: string, comment: string): Observable<Referat> {
     return this.http.post<Referat>(`${this.base}/referate/${id}/send-back`, {
-      actingUserId,
       comment,
     });
   }
@@ -67,28 +79,30 @@ export class ApiService {
   // ---- Attachments (files live in R2; upload goes through the API) ----
 
   /** Multipart upload of one or more files onto a referat. */
-  uploadAttachments(
-    referatId: string,
-    files: File[],
-    actingUserId: string,
-  ): Observable<Referat> {
+  uploadAttachments(referatId: string, files: File[]): Observable<Referat> {
     const form = new FormData();
     for (const file of files) form.append('files', file, file.name);
-    form.append('actingUserId', actingUserId);
     return this.http.post<Referat>(
       `${this.base}/referate/${referatId}/atasamente`,
       form,
     );
   }
 
-  /** API URL for one attachment; the API answers with a 302 to a presigned R2 URL. */
-  attachmentDownloadUrl(referatId: string, attachmentId: string): string {
-    return `${this.base}/referate/${referatId}/atasamente/${attachmentId}/download`;
+  /** Authenticated fetch of the presigned R2 URL for one attachment. */
+  getAttachmentUrl(
+    referatId: string,
+    attachmentId: string,
+  ): Observable<{ url: string }> {
+    return this.http.get<{ url: string }>(
+      `${this.base}/referate/${referatId}/atasamente/${attachmentId}/download`,
+    );
   }
 
-  /** URL of the print-ready PDF document for a referat (served inline). */
-  referatPdfUrl(referatId: string): string {
-    return `${this.base}/referate/${referatId}/pdf`;
+  /** The referat's print-ready PDF, fetched with auth as a Blob. */
+  getPdfBlob(referatId: string): Observable<Blob> {
+    return this.http.get(`${this.base}/referate/${referatId}/pdf`, {
+      responseType: 'blob',
+    });
   }
 
   // ---- Configurable workflow ----
@@ -102,7 +116,7 @@ export class ApiService {
     return this.http.get<Workflow>(`${this.base}/workflows/${id}`);
   }
 
-  /** Replace the entire ordered step list of a workflow. */
+  /** Replace the entire ordered step list of a workflow (DIR_GENERAL only). */
   saveSteps(
     id: string,
     steps: Pick<WorkflowStep, 'order' | 'role' | 'label' | 'appliesWhen'>[],

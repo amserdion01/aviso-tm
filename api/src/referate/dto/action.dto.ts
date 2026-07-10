@@ -1,11 +1,9 @@
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
+// The acting user is no longer part of the payload — it comes from the JWT.
+
 /** Approve: comment is optional. */
 export class ApproveDto {
-  @IsString()
-  @IsNotEmpty()
-  actingUserId: string;
-
   @IsOptional()
   @IsString()
   comment?: string;
@@ -13,10 +11,6 @@ export class ApproveDto {
 
 /** Reject / send-back: comment is required. */
 export class CommentRequiredDto {
-  @IsString()
-  @IsNotEmpty()
-  actingUserId: string;
-
   @IsString()
   @IsNotEmpty()
   comment: string;

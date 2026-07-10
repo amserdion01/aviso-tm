@@ -12,6 +12,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ApiService } from '../../core/api.service';
 import { SessionService } from '../../core/session.service';
+import { ViewportService } from '../../core/viewport.service';
 import { ApprovalTask, Referat, ROLE_SHORT } from '../../core/models';
 import { LeiPipe, DataRoPipe } from '../../core/format';
 import { IconComponent } from '../../shared/icon.component';
@@ -51,8 +52,12 @@ export class InboxComponent {
   /** Exposed to the template for the "Pas curent" badge. */
   readonly ROLE_SHORT = ROLE_SHORT;
 
+  /** Phone viewport → stacked cards instead of the table. */
+  readonly isMobile = inject(ViewportService).isMobile;
+
   readonly currentUser = this.session.currentUser;
-  readonly actingRole = this.session.actingRole;
+  /** The authenticated user's role (drives the empty-state copy). */
+  readonly actingRole = () => this.session.currentUser()?.role ?? null;
 
   readonly referate = signal<Referat[]>([]);
   readonly loading = signal(false);
@@ -60,10 +65,9 @@ export class InboxComponent {
   readonly displayedColumns = ['ref', 'sol', 'art', 'val', 'pas', 'act'];
 
   constructor() {
-    // Load on init and re-load whenever the acting role changes.
+    // Load on init and re-load if the session user changes (fresh login).
     effect(() => {
-      const role = this.actingRole();
-      if (!role) {
+      if (!this.currentUser()) {
         this.referate.set([]);
         return;
       }
@@ -72,10 +76,8 @@ export class InboxComponent {
   }
 
   private fetch(): void {
-    const role = this.actingRole();
-    if (!role) return;
     this.loading.set(true);
-    this.api.getInbox(role).subscribe({
+    this.api.getInbox().subscribe({
       next: (rows) => {
         this.referate.set(rows);
         // Keep the shared nav badge exactly in sync with the loaded list.
@@ -103,12 +105,10 @@ export class InboxComponent {
     this.router.navigate(['/referat', referat.id]);
   }
 
-  /** Quick approve using the acting user; refresh + toast on success. */
+  /** Quick approve as the authenticated user; refresh + toast on success. */
   approve(referat: Referat, event?: Event): void {
     event?.stopPropagation();
-    const user = this.currentUser();
-    if (!user) return;
-    this.api.approve(referat.id, user.id).subscribe({
+    this.api.approve(referat.id).subscribe({
       next: () => {
         this.fetch();
         this.toast('Referat avizat.', 'tone-success');

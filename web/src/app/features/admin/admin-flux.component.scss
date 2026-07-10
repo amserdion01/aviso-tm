@@ -115,3 +115,31 @@
   justify-content: flex-end;
   margin-top: var(--space-6);
 }
+
+/* ---- Phone (≤720px) ---- */
+@media (max-width: 720px) {
+  .af-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .af-step {
+    flex-direction: column;
+  }
+  .af-step__order {
+    margin-top: 0;
+  }
+  .af-field,
+  .af-field--grow,
+  .af-field--threshold {
+    width: 100%;
+    min-width: 0;
+  }
+  .af-step__actions {
+    margin-top: 0;
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .af-actions button {
+    width: 100%;
+  }
+}

@@ -21,7 +21,6 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ApiService } from '../../core/api.service';
-import { SessionService } from '../../core/session.service';
 import { BytesPipe } from '../../core/format';
 import {
   appliesClient,
@@ -72,7 +71,6 @@ interface ReferatForm {
 export class ReferatNouComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ApiService);
-  private readonly session = inject(SessionService);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
 
@@ -143,9 +141,6 @@ export class ReferatNouComponent {
       return;
     }
 
-    const requester = this.session.currentUser();
-    if (!requester) return;
-
     const raw = this.form.getRawValue();
     const payload: CreateReferatPayload = {
       articol: raw.articol.trim(),
@@ -155,7 +150,6 @@ export class ReferatNouComponent {
       valoareLei: Number(raw.valoareLei),
       necesitaIt: raw.necesitaIt,
       necesitaSsm: raw.necesitaSsm,
-      requesterId: requester.id,
     };
 
     this.api.create(payload).subscribe((created) => {
@@ -165,7 +159,7 @@ export class ReferatNouComponent {
         return;
       }
       // The referat exists; attach the files, then navigate either way.
-      this.api.uploadAttachments(created.id, files, requester.id).subscribe({
+      this.api.uploadAttachments(created.id, files).subscribe({
         next: () => this.afterCreate(created.id),
         error: () => {
           this.snack.open(

@@ -103,3 +103,47 @@
   color: var(--text-strong);
   white-space: nowrap;
 }
+
+/* ---- Mobile cards (≤720px, driven by ViewportService.isMobile) ---- */
+.toate__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: var(--space-6);
+}
+
+.ref-card {
+  padding: 14px;
+  cursor: pointer;
+}
+
+.ref-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ref-card__title {
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong, var(--text-body));
+  min-width: 0;
+}
+
+.ref-card__val {
+  flex: none;
+  font-weight: var(--weight-semibold);
+}
+
+.ref-card__meta {
+  margin-top: 4px;
+  font-size: var(--text-sm-size);
+  color: var(--text-muted);
+}
+
+.ref-card__badges {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

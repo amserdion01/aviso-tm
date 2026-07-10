@@ -14,6 +14,29 @@
     <app-status-badge status="finalized" size="sm" />
   </div>
 
+  @if (isMobile()) {
+    <!-- Mobile: stacked cards -->
+    <div class="toate__cards">
+      @for (r of referate(); track r.id) {
+        <div class="ref-card av-card" (click)="openDetail(r)">
+          <div class="ref-card__top">
+            <div class="ref-card__title">{{ r.articol }}</div>
+            <span class="ref-card__val mono">{{ r.valoareLei | lei }}</span>
+          </div>
+          <div class="ref-card__meta">
+            <span class="mono">{{ shortCode(r) }}</span>
+            · {{ r.requester?.name }} · {{ r.createdAt | dataRo }}
+          </div>
+          <div class="ref-card__badges">
+            <app-status-badge [status]="statusKey(r)" size="sm" />
+            <app-badge>{{
+              r.valoareLei >= APPROVAL_THRESHOLD_LEI ? 'Complet' : 'Scurt'
+            }}</app-badge>
+          </div>
+        </div>
+      }
+    </div>
+  } @else {
   <div class="av-card toate__card">
     <table mat-table [dataSource]="referate()" class="toate__table">
       <!-- Referat -->
@@ -75,4 +98,5 @@
       ></tr>
     </table>
   </div>
+  }
 </div>

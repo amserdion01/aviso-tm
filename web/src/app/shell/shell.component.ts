@@ -7,17 +7,19 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
-import { MatSelectModule } from '@angular/material/select';
 import { MatMenuModule } from '@angular/material/menu';
-import { FormsModule } from '@angular/forms';
 import { filter } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { SessionService } from '../core/session.service';
-import { Referat, ROLES, ROLE_LABEL, Role } from '../core/models';
+import { Referat, ROLE_LABEL } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 import { AvatarComponent } from '../shared/avatar.component';
 
-/** App shell: sticky top bar (brand + role switcher) + left nav + content. */
+/**
+ * App shell: sticky top bar (brand + notifications + logout) + left nav +
+ * content. Identity comes exclusively from the JWT session — switching roles
+ * means logging out and in with another account.
+ */
 @Component({
   selector: 'app-shell',
   standalone: true,
@@ -26,9 +28,7 @@ import { AvatarComponent } from '../shared/avatar.component';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
-    MatSelectModule,
     MatMenuModule,
-    FormsModule,
     IconComponent,
     AvatarComponent,
   ],
@@ -40,41 +40,48 @@ export class ShellComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
 
-  readonly roles = ROLES;
-  readonly roleLabel = ROLE_LABEL;
   readonly orgName = 'Timișoara';
 
   readonly currentUser = this.session.currentUser;
-  readonly role = this.session.actingRole;
   /** The admin ("Administrare flux") screen is scoped to the Director General. */
-  readonly isAdmin = computed(() => this.role() === 'DIR_GENERAL');
+  readonly isAdmin = computed(() => this.currentUser()?.role === 'DIR_GENERAL');
   /** Shared, kept in sync by SessionService after every workflow action. */
   readonly inboxCount = this.session.inboxCount;
   readonly userName = computed(() => this.currentUser()?.name ?? 'Utilizator');
   readonly roleText = computed(() => {
-    const r = this.role();
-    return r ? ROLE_LABEL[r] : '';
+    const user = this.currentUser();
+    return user ? ROLE_LABEL[user.role] : '';
   });
 
-  /** Referate awaiting the acting role — shown in the notifications menu. */
+  /** Referate awaiting the current user — shown in the notifications menu. */
   readonly notifications = signal<Referat[]>([]);
 
+  /** Mobile off-canvas drawer state (the sidebar itself on ≤720px). */
+  readonly drawerOpen = signal(false);
+
   ngOnInit(): void {
-    // Initial fill + keep fresh after navigation (e.g. returning from detail).
+    // Initial fill + keep fresh after navigation (e.g. returning from detail);
+    // navigating also closes the mobile drawer.
     this.session.refreshInboxCount();
     this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
-      .subscribe(() => this.session.refreshInboxCount());
+      .subscribe(() => {
+        this.session.refreshInboxCount();
+        this.drawerOpen.set(false);
+      });
   }
 
-  /** Load the acting role's pending referate when the bell menu opens. */
+  toggleDrawer(): void {
+    this.drawerOpen.update((open) => !open);
+  }
+
+  closeDrawer(): void {
+    this.drawerOpen.set(false);
+  }
+
+  /** Load the current user's pending referate when the bell menu opens. */
   loadNotifications(): void {
-    const role = this.role();
-    if (!role) {
-      this.notifications.set([]);
-      return;
-    }
-    this.api.getInbox(role).subscribe({
+    this.api.getInbox().subscribe({
       next: (list) => this.notifications.set(list),
       error: () => this.notifications.set([]),
     });
@@ -82,11 +89,6 @@ export class ShellComponent implements OnInit {
 
   openReferat(id: string): void {
     this.router.navigate(['/referat', id]);
-  }
-
-  onRoleChange(role: Role): void {
-    this.session.setRole(role);
-    this.router.navigate(['/inbox']);
   }
 
   logout(): void {

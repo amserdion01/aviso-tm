@@ -58,14 +58,15 @@
           color="primary"
           type="submit"
           class="login-submit"
+          [disabled]="submitting()"
         >
           <app-icon name="log-in" [size]="18" />
-          Autentificare
+          {{ submitting() ? 'Se autentifică…' : 'Autentificare' }}
         </button>
       </form>
 
       <div class="demo-accounts">
-        <div class="demo-eyebrow">Conturi demo · apasă pentru completare</div>
+        <div class="demo-eyebrow">Conturi demo · apasă pentru completarea emailului</div>
         @for (acc of accounts(); track acc.user.id) {
           <button type="button" class="demo-row" (click)="fillAccount(acc)">
             <app-avatar [name]="acc.name" size="xs" />

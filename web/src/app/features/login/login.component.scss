@@ -217,3 +217,30 @@
   font-size: var(--text-caption-size);
   color: rgba(255, 255, 255, 0.6);
 }
+
+/* ---- Phone (≤720px): single column, no brand panel ---- */
+@media (max-width: 720px) {
+  .login-page {
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .login-card {
+    flex-direction: column;
+    max-width: 100%;
+  }
+  .login-brand-side {
+    display: none;
+  }
+  .login-form-side {
+    padding: 24px 20px;
+  }
+  .demo-row {
+    width: 100%;
+  }
+  .demo-email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+}

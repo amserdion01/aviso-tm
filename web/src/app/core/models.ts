@@ -38,7 +38,14 @@ export type StatusKey =
 export interface User {
   id: string;
   name: string;
+  email: string;
   role: Role;
+}
+
+/** Response of POST /auth/login. */
+export interface LoginResponse {
+  token: string;
+  user: User;
 }
 
 export interface ApprovalTask {
@@ -97,6 +104,7 @@ export interface Referat {
   attachments: Attachment[];
 }
 
+/** The requester is the authenticated user — no id travels in the payload. */
 export interface CreateReferatPayload {
   articol: string;
   cantitate: number;
@@ -105,7 +113,6 @@ export interface CreateReferatPayload {
   valoareLei: number;
   necesitaIt: boolean;
   necesitaSsm: boolean;
-  requesterId: string;
 }
 
 // ============================================================

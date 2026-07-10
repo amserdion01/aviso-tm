@@ -4,7 +4,9 @@
     <div>
       <h1 class="page-title">Inboxul meu</h1>
       <p class="page-sub">
-        @if (referate().length > 0) {
+        @if (loading() && referate().length === 0) {
+          Se încarcă…
+        } @else if (referate().length > 0) {
           @if (referate().length === 1) {
             1 referat așteaptă decizia ta.
           } @else {
@@ -22,7 +24,57 @@
     </a>
   </div>
 
-  @if (referate().length > 0) {
+  @if (referate().length > 0 && isMobile()) {
+    <!-- Mobile: stacked cards (same data + actions as the table) -->
+    <div class="inbox__cards">
+      @for (r of referate(); track r.id) {
+        <div class="ref-card av-card" (click)="openDetail(r)">
+          <div class="ref-card__top">
+            <div class="ref-card__title">{{ r.articol }}</div>
+            <span class="ref-card__val mono">{{ r.valoareLei | lei }}</span>
+          </div>
+          <div class="ref-card__meta">
+            <span class="mono">{{ shortCode(r) }}</span>
+            · {{ r.requester?.name }}
+            @if (r.status === 'TRIMIS_INAPOI') {
+              · <app-status-badge status="sentback" size="sm" />
+            } @else if (waitingTask(r); as wt) {
+              · <app-badge>{{ ROLE_SHORT[wt.role] }}</app-badge>
+            }
+          </div>
+          <div class="ref-card__actions">
+            <button
+              mat-flat-button
+              color="primary"
+              class="act-approve"
+              (click)="approve(r, $event)"
+            >
+              <app-icon name="check" [size]="15" />
+              <span>Aprobă</span>
+            </button>
+            <button
+              mat-icon-button
+              class="act-icon"
+              aria-label="Trimite înapoi"
+              title="Trimite înapoi"
+              (click)="goToAction(r, 'back', $event)"
+            >
+              <app-icon name="corner-up-left" [size]="16" />
+            </button>
+            <button
+              mat-icon-button
+              class="act-icon"
+              aria-label="Respinge"
+              title="Respinge"
+              (click)="goToAction(r, 'reject', $event)"
+            >
+              <app-icon name="x" [size]="16" />
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (referate().length > 0) {
     <!-- List -->
     <div class="av-card inbox__card">
       <table mat-table [dataSource]="referate()" class="inbox__table">
@@ -120,8 +172,8 @@
         ></tr>
       </table>
     </div>
-  } @else {
-    <!-- Empty state -->
+  } @else if (!loading()) {
+    <!-- Empty state (only once loading has settled — no flash before data). -->
     <div class="av-card">
       <app-empty-state
         icon="inbox"

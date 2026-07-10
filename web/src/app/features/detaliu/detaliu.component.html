@@ -16,16 +16,17 @@
               <h2 class="articol">{{ r.articol }}</h2>
             </div>
             <div class="head-actions">
-              <a
+              <button
+                type="button"
                 mat-stroked-button
                 class="pdf-link"
-                [href]="pdfUrl()"
-                target="_blank"
                 title="Deschide documentul PDF al referatului"
+                [disabled]="pdfLoading()"
+                (click)="openPdf()"
               >
                 <app-icon name="download" [size]="15" />
-                <span>Descarcă PDF</span>
-              </a>
+                <span>{{ pdfLoading() ? 'Se generează…' : 'Descarcă PDF' }}</span>
+              </button>
               @if (statusKey(); as key) {
                 <app-status-badge [status]="key" />
               }
@@ -115,10 +116,14 @@
                       · {{ a.createdAt | dataRo }}
                     </span>
                   </span>
-                  <a class="att-download" [href]="attachmentUrl(a.id)" target="_blank">
+                  <button
+                    type="button"
+                    class="att-download"
+                    (click)="downloadAttachment(a.id)"
+                  >
                     <app-icon name="download" [size]="15" />
                     <span>Descarcă</span>
-                  </a>
+                  </button>
                 </li>
               }
             </ul>

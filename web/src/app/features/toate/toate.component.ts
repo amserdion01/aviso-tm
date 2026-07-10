@@ -8,6 +8,7 @@ import { Router } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 
 import { ApiService } from '../../core/api.service';
+import { ViewportService } from '../../core/viewport.service';
 import { APPROVAL_THRESHOLD_LEI, Referat, STATUS_KEY, StatusKey } from '../../core/models';
 import { LeiPipe, DataRoPipe } from '../../core/format';
 import { StatusBadgeComponent } from '../../shared/status-badge.component';
@@ -39,6 +40,9 @@ export class ToateComponent {
   /** Exposed to the template. */
   readonly APPROVAL_THRESHOLD_LEI = APPROVAL_THRESHOLD_LEI;
   readonly STATUS_KEY = STATUS_KEY;
+
+  /** Phone viewport → stacked cards instead of the table. */
+  readonly isMobile = inject(ViewportService).isMobile;
 
   readonly referate = signal<Referat[]>([]);
 

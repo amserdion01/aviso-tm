@@ -126,6 +126,22 @@ export interface StepperStep {
         border-color: var(--border-strong);
         color: var(--text-subtle);
       }
+
+      /* Phone: the chain scrolls horizontally instead of crushing the labels. */
+      @media (max-width: 720px) {
+        .stepper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 6px;
+        }
+        .step {
+          flex: none;
+          min-width: 104px;
+        }
+        .step:last-child {
+          min-width: 88px;
+        }
+      }
     `,
   ],
 })
