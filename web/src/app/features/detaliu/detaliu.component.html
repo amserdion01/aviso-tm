@@ -15,9 +15,21 @@
               <div class="ref-code mono">{{ shortCode() }}</div>
               <h2 class="articol">{{ r.articol }}</h2>
             </div>
-            @if (statusKey(); as key) {
-              <app-status-badge [status]="key" />
-            }
+            <div class="head-actions">
+              <a
+                mat-stroked-button
+                class="pdf-link"
+                [href]="pdfUrl()"
+                target="_blank"
+                title="Deschide documentul PDF al referatului"
+              >
+                <app-icon name="download" [size]="15" />
+                <span>Descarcă PDF</span>
+              </a>
+              @if (statusKey(); as key) {
+                <app-status-badge [status]="key" />
+              }
+            </div>
           </div>
 
           <div class="fields">
@@ -63,6 +75,58 @@
           <div class="path-note">{{ pathSub() }}</div>
         </section>
 
+        <!-- Atașamente card -->
+        <section class="av-card av-card-pad">
+          <div class="att-head">
+            <div class="section-title">Atașamente</div>
+            @if (canAttach()) {
+              <input
+                #attachInput
+                type="file"
+                multiple
+                class="att-input"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                (change)="onAttachFiles($event)"
+              />
+              <button
+                type="button"
+                mat-stroked-button
+                [disabled]="uploadingFiles()"
+                (click)="attachInput.click()"
+              >
+                <app-icon name="paperclip" [size]="15" />
+                <span>{{ uploadingFiles() ? 'Se încarcă…' : 'Adaugă fișier' }}</span>
+              </button>
+            }
+          </div>
+
+          @if (r.attachments.length > 0) {
+            <ul class="att-list">
+              @for (a of r.attachments; track a.id) {
+                <li class="att-item">
+                  <span class="att-icon"><app-icon name="paperclip" [size]="15" /></span>
+                  <span class="att-meta">
+                    <span class="att-name">{{ a.fileName }}</span>
+                    <span class="att-sub">
+                      {{ a.sizeBytes | bytes }}
+                      @if (a.uploadedBy) {
+                        · {{ a.uploadedBy.name }}
+                      }
+                      · {{ a.createdAt | dataRo }}
+                    </span>
+                  </span>
+                  <a class="att-download" [href]="attachmentUrl(a.id)" target="_blank">
+                    <app-icon name="download" [size]="15" />
+                    <span>Descarcă</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          } @else {
+            <div class="att-empty">Fără atașamente.</div>
+          }
+        </section>
+
         <!-- Istoric card -->
         <section class="av-card av-card-pad">
           <div class="section-title istoric-title">Istoric</div>
@@ -85,7 +149,11 @@
               <div class="action-note">{{ preselectNote() }}</div>
             }
 
-            <mat-form-field appearance="outline" class="comment-field">
+            <mat-form-field
+              appearance="outline"
+              subscriptSizing="dynamic"
+              class="comment-field"
+            >
               <mat-label>Comentariu</mat-label>
               <textarea
                 #commentInput

@@ -13,6 +13,10 @@ const REFERAT_INCLUDE = {
     orderBy: { createdAt: 'asc' },
     include: { actor: true },
   },
+  attachments: {
+    orderBy: { createdAt: 'asc' },
+    include: { uploadedBy: true },
+  },
 } satisfies Prisma.ReferatInclude;
 
 @Injectable()

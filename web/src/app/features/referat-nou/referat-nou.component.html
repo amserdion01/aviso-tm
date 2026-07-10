@@ -115,24 +115,67 @@
       </mat-form-field>
     </div>
 
-    <!-- Live routing-path banner -->
-    @if (path() === 'short') {
-      <div class="path-banner short">
-        <span class="tag">Traseu scurt</span>
-        <span>Sub 5.000 lei · Șef ierarhic → Birou Achiziții. Fără avizări de directori.</span>
+    <!-- Avizări suplimentare (activează pași condiționali în flux) -->
+    <div class="rn-field">
+      <span class="rn-label">Avizări suplimentare</span>
+      <div class="rn-checks">
+        <mat-checkbox formControlName="necesitaIt">Necesită implicare IT</mat-checkbox>
+        <mat-checkbox formControlName="necesitaSsm">Necesită avizare SSM</mat-checkbox>
       </div>
-    } @else if (path() === 'full') {
+    </div>
+
+    <!-- Atașamente (opțional; urcate imediat după creare) -->
+    <div class="rn-field">
+      <span class="rn-label">Atașamente</span>
+      <input
+        #fileInput
+        type="file"
+        multiple
+        class="rn-file-input"
+        accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv"
+        (change)="onFilesPicked($event)"
+      />
+      <div class="rn-files">
+        @for (f of selectedFiles(); track $index) {
+          <div class="rn-file">
+            <app-icon name="paperclip" [size]="14" />
+            <span class="rn-file__name">{{ f.name }}</span>
+            <span class="rn-file__size">{{ f.size | bytes }}</span>
+            <button
+              type="button"
+              class="rn-file__remove"
+              aria-label="Elimină fișierul"
+              title="Elimină fișierul"
+              (click)="removeFile($index)"
+            >
+              <app-icon name="x" [size]="13" />
+            </button>
+          </div>
+        }
+        <button
+          type="button"
+          mat-stroked-button
+          class="rn-file-add"
+          [disabled]="selectedFiles().length >= 5"
+          (click)="fileInput.click()"
+        >
+          <app-icon name="paperclip" [size]="15" />
+          <span>Adaugă fișiere</span>
+        </button>
+      </div>
+      <span class="rn-file-hint">Maxim 5 fișiere · 10 MB fiecare · PDF, imagini, documente Office.</span>
+    </div>
+
+    <!-- Live routing-path preview (resolved from the active workflow) -->
+    @if (previewSteps().length > 0) {
       <div class="path-banner full">
-        <span class="tag">Traseu complet</span>
-        <span>De la 5.000 lei · Șef ierarhic → Birou Achiziții → Director economic → Director general.</span>
+        <span class="tag">Traseu de avizare</span>
+        <span>{{ previewSteps().join(' → ') }}</span>
       </div>
     }
   </form>
 
   <div class="rn-actions">
-    <button type="button" mat-stroked-button (click)="saveDraft()">
-      Salvează ca schiță
-    </button>
     <button type="button" mat-flat-button color="primary" (click)="submit()">
       <app-icon name="send" [size]="16" />
       Trimite referatul

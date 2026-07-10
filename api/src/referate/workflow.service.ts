@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ReferatStatus, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { approvalChainFor } from '../config/workflow.config';
+import { applies, Condition, RoutingContext } from '../config/condition';
 import { CreateReferatDto } from './dto/create-referat.dto';
 import { ApproveDto, CommentRequiredDto } from './dto/action.dto';
 import { REFERAT_INCLUDE } from './referate.service';
@@ -23,9 +23,10 @@ export class WorkflowService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Create a referat and materialize its approval chain from valoareLei.
-   * The chain, the first WAITING task, and the creation Transition are all
-   * written in a single transaction.
+   * Create a referat and materialize its approval chain from the active
+   * Workflow: each step whose `appliesWhen` condition matches the referat
+   * becomes a task, in order. The chain, the first WAITING task, and the
+   * creation Transition are all written in a single transaction.
    */
   async create(dto: CreateReferatDto) {
     const requester = await this.prisma.user.findUnique({
@@ -37,11 +38,34 @@ export class WorkflowService {
       );
     }
 
-    const chain = approvalChainFor(dto.valoareLei);
+    const workflow = await this.prisma.workflow.findFirst({
+      where: { isActive: true },
+      include: { steps: { orderBy: { order: 'asc' } } },
+    });
+    if (!workflow || workflow.steps.length === 0) {
+      throw new BadRequestException(
+        'Niciun flux de avizare activ nu este configurat.',
+      );
+    }
+
+    // Evaluate each step's condition against this referat; keep only those that apply.
+    const ctx: RoutingContext = {
+      valoareLei: dto.valoareLei,
+      necesitaIt: dto.necesitaIt ?? false,
+      necesitaSsm: dto.necesitaSsm ?? false,
+    };
+    const chain = workflow.steps.filter((step) =>
+      applies(step.appliesWhen as Condition, ctx),
+    );
+    if (chain.length === 0) {
+      throw new BadRequestException(
+        'Fluxul activ nu produce niciun pas pentru acest referat.',
+      );
+    }
 
     // Resolve one effective approver per role up front (a single query).
     const approvers = await this.prisma.user.findMany({
-      where: { role: { in: chain } },
+      where: { role: { in: chain.map((s) => s.role) } },
     });
     const approverByRole = new Map(approvers.map((u) => [u.role, u]));
 
@@ -53,14 +77,18 @@ export class WorkflowService {
           justificare: dto.justificare,
           centruCost: dto.centruCost,
           valoareLei: dto.valoareLei,
+          necesitaIt: ctx.necesitaIt,
+          necesitaSsm: ctx.necesitaSsm,
           requesterId: requester.id,
+          workflowId: workflow.id,
           status: ReferatStatus.IN_ASTEPTARE,
           tasks: {
-            create: chain.map((role, index) => ({
+            // Re-number to a contiguous 1..n stepOrder over the applicable steps.
+            create: chain.map((step, index) => ({
               stepOrder: index + 1,
-              role,
+              role: step.role,
               status: index === 0 ? TaskStatus.WAITING : TaskStatus.PENDING,
-              effectiveApproverId: approverByRole.get(role)?.id ?? null,
+              effectiveApproverId: approverByRole.get(step.role)?.id ?? null,
             })),
           },
         },

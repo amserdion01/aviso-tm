@@ -98,13 +98,8 @@ export class LoginComponent {
       email: this.session.emailFor(user),
     }));
     this.accounts.set(accounts);
-
-    // Prefill with the Șef ierarhic account (or the first available).
-    const preselect =
-      accounts.find((a) => a.user.role === 'SEF_IERARHIC') ?? accounts[0];
-    if (preselect) {
-      this.form.patchValue({ email: preselect.email, password: DEMO_PASSWORD });
-    }
+    // No autologin: the form starts empty. The user picks a demo account (which
+    // fills the credentials) or types a known email, then submits.
   }
 
   fillAccount(account: DemoAccount): void {

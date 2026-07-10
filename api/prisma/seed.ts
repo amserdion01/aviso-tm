@@ -11,7 +11,8 @@ import {
   ReferatStatus,
   TaskStatus,
 } from '@prisma/client';
-import { approvalChainFor } from '../src/config/workflow.config';
+import { APPROVAL_THRESHOLD_LEI } from '../src/config/workflow.config';
+import { applies, Condition, RoutingContext } from '../src/config/condition';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,8 @@ interface SeedReferat {
   justificare: string;
   centruCost: string;
   valoareLei: number;
+  necesitaIt?: boolean;
+  necesitaSsm?: boolean;
   /** Actions replayed (in order) after creation, each by the active step's role. */
   actions: SeedAction[];
 }
@@ -33,10 +36,54 @@ interface SeedReferat {
 const USERS: { name: string; role: Role }[] = [
   { name: 'Andrei Popescu', role: Role.ANGAJAT },
   { name: 'Maria Ionescu', role: Role.SEF_IERARHIC },
+  { name: 'Serviciul IT (Vlad Marin)', role: Role.IT },
+  { name: 'Responsabil SSM (Ioana Neagu)', role: Role.SSM },
   { name: 'Birou Achiziții (Elena Dumitru)', role: Role.ACHIZITII },
   { name: 'Radu Georgescu', role: Role.DIR_ECONOMIC },
   { name: 'Cristina Munteanu', role: Role.DIR_GENERAL },
 ];
+
+/**
+ * The standard, active approval workflow. Each step's `appliesWhen` is evaluated
+ * against a referat at creation time (see api/src/config/condition.ts). With the
+ * IT/SSM flags off and the value threshold, this reproduces the original
+ * SEF → ACHIZITII (+ DIR_ECONOMIC → DIR_GENERAL when ≥ threshold) chain.
+ */
+const STANDARD_WORKFLOW_STEPS: {
+  role: Role;
+  label: string;
+  appliesWhen: Condition;
+}[] = [
+  { role: Role.SEF_IERARHIC, label: 'Avizare șef ierarhic', appliesWhen: null },
+  {
+    role: Role.IT,
+    label: 'Verificare IT',
+    appliesWhen: { field: 'necesitaIt', eq: true },
+  },
+  {
+    role: Role.SSM,
+    label: 'Avizare SSM',
+    appliesWhen: { field: 'necesitaSsm', eq: true },
+  },
+  { role: Role.ACHIZITII, label: 'Birou Achiziții', appliesWhen: null },
+  {
+    role: Role.DIR_ECONOMIC,
+    label: 'Aprobare director economic',
+    appliesWhen: { field: 'valoareLei', op: 'gte', value: APPROVAL_THRESHOLD_LEI },
+  },
+  {
+    role: Role.DIR_GENERAL,
+    label: 'Aprobare director general',
+    appliesWhen: { field: 'valoareLei', op: 'gte', value: APPROVAL_THRESHOLD_LEI },
+  },
+];
+
+/** Ordered roles that apply to a referat, per the standard workflow conditions. */
+function chainFor(ctx: RoutingContext): Role[] {
+  return STANDARD_WORKFLOW_STEPS.filter((s) => applies(s.appliesWhen, ctx)).map(
+    (s) => s.role,
+  );
+}
 
 const REFERATE: SeedReferat[] = [
   {
@@ -240,6 +287,29 @@ const REFERATE: SeedReferat[] = [
     // Proaspăt creat -> WAITING la Șef ierarhic.
     actions: [],
   },
+
+  // ---- Conditional steps via flags (necesită IT / SSM) ----
+  {
+    articol: 'Licențe antivirus (50 stații)',
+    cantitate: 50,
+    justificare: 'Reînnoirea licențelor de securitate pentru stațiile de lucru.',
+    centruCost: 'Birou IT',
+    valoareLei: 3200,
+    necesitaIt: true,
+    // Traseu scurt + pas IT: Șef -> IT -> Achiziții. Aprobat de Șef -> WAITING la IT.
+    actions: [{ kind: 'approve', comment: 'De acord, licențele expiră luna aceasta.' }],
+  },
+  {
+    articol: 'Echipament ridicat sarcini (macara mobilă)',
+    cantitate: 1,
+    justificare: 'Manipularea în siguranță a pompelor grele la stația de captare.',
+    centruCost: 'Stație captare',
+    valoareLei: 62000,
+    necesitaSsm: true,
+    // Traseu complet + pas SSM: Șef -> SSM -> Achiziții -> Dir. economic -> Dir. general.
+    // Aprobat Șef -> WAITING la SSM.
+    actions: [{ kind: 'approve', comment: 'Necesar pentru protecția echipelor.' }],
+  },
 ];
 
 const OPEN_TASK_STATUSES: TaskStatus[] = [
@@ -253,6 +323,8 @@ async function main(): Promise<void> {
   await prisma.transition.deleteMany();
   await prisma.approvalTask.deleteMany();
   await prisma.referat.deleteMany();
+  await prisma.workflowStep.deleteMany();
+  await prisma.workflow.deleteMany();
   await prisma.user.deleteMany();
 
   const users = await Promise.all(
@@ -261,12 +333,32 @@ async function main(): Promise<void> {
   const userByRole = new Map(users.map((u) => [u.role, u]));
   const requester = userByRole.get(Role.ANGAJAT)!;
 
+  // The single active workflow that new referate route against.
+  const workflow = await prisma.workflow.create({
+    data: {
+      name: 'Flux standard achiziții',
+      isActive: true,
+      steps: {
+        create: STANDARD_WORKFLOW_STEPS.map((step, index) => ({
+          order: index + 1,
+          role: step.role,
+          label: step.label,
+          appliesWhen:
+            step.appliesWhen == null
+              ? Prisma.JsonNull
+              : (step.appliesWhen as Prisma.InputJsonValue),
+        })),
+      },
+    },
+  });
+
   for (const spec of REFERATE) {
-    await seedReferat(spec, requester.id, userByRole);
+    await seedReferat(spec, requester.id, workflow.id, userByRole);
   }
 
   const counts = {
     users: await prisma.user.count(),
+    workflows: await prisma.workflow.count(),
     referate: await prisma.referat.count(),
     tasks: await prisma.approvalTask.count(),
     transitions: await prisma.transition.count(),
@@ -278,9 +370,16 @@ async function main(): Promise<void> {
 async function seedReferat(
   spec: SeedReferat,
   requesterId: string,
+  workflowId: string,
   userByRole: Map<Role, { id: string; role: Role }>,
 ): Promise<void> {
-  const chain = approvalChainFor(spec.valoareLei);
+  const necesitaIt = spec.necesitaIt ?? false;
+  const necesitaSsm = spec.necesitaSsm ?? false;
+  const chain = chainFor({
+    valoareLei: spec.valoareLei,
+    necesitaIt,
+    necesitaSsm,
+  });
 
   // Create + materialize chain + creation transition (mirrors WorkflowService.create).
   const referat = await prisma.$transaction(async (tx) => {
@@ -291,7 +390,10 @@ async function seedReferat(
         justificare: spec.justificare,
         centruCost: spec.centruCost,
         valoareLei: spec.valoareLei,
+        necesitaIt,
+        necesitaSsm,
         requesterId,
+        workflowId,
         status: ReferatStatus.IN_ASTEPTARE,
         tasks: {
           create: chain.map((role, index) => ({

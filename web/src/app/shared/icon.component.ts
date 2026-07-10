@@ -23,7 +23,13 @@ export type IconName =
   | 'users'
   | 'history'
   | 'chevron-down'
-  | 'plus';
+  | 'plus'
+  | 'sliders'
+  | 'trash'
+  | 'arrow-up'
+  | 'arrow-down'
+  | 'paperclip'
+  | 'download';
 
 const ICONS: Record<IconName, string[]> = {
   inbox: [
@@ -52,12 +58,33 @@ const ICONS: Record<IconName, string[]> = {
   history: ['M3 3v5h5', 'M3.05 13a9 9 0 1 0 2.13-5.36L3 8', 'M12 7v5l4 2'],
   'chevron-down': ['m6 9 6 6 6-6'],
   plus: ['M5 12h14', 'M12 5v14'],
+  sliders: [
+    'M4 21v-7',
+    'M4 10V3',
+    'M12 21v-9',
+    'M12 8V3',
+    'M20 21v-5',
+    'M20 12V3',
+    'M1 14h6',
+    'M9 8h6',
+    'M17 16h6',
+  ],
+  trash: ['M3 6h18', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6', 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', 'M10 11v6', 'M14 11v6'],
+  'arrow-up': ['M12 19V5', 'm5 12 7-7 7 7'],
+  'arrow-down': ['M12 5v14', 'm19 12-7 7-7-7'],
+  paperclip: [
+    'm21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48',
+  ],
+  download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm7 10 5 5 5-5', 'M12 15V3'],
 };
 
 @Component({
   selector: 'app-icon',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Atomic inline-flex box: keeps the (block) SVG from breaking onto its own
+  // line when the icon sits inline next to text (e.g. inside a button label).
+  styles: [':host { display: inline-flex; align-items: center; flex: none; }'],
   template: `
     <svg
       [attr.width]="size()"

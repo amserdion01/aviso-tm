@@ -22,9 +22,42 @@
 
     <span class="divider"></span>
 
-    <button class="icon-btn" type="button" aria-label="Notificări">
+    <button
+      class="icon-btn notif-btn"
+      type="button"
+      aria-label="Notificări"
+      [matMenuTriggerFor]="notifMenu"
+      (menuOpened)="loadNotifications()"
+    >
       <app-icon name="bell" [size]="18" />
+      @if (inboxCount() > 0) {
+        <span class="notif-dot">{{ inboxCount() }}</span>
+      }
     </button>
+
+    <mat-menu #notifMenu="matMenu" class="notif-menu" xPosition="before">
+      <div class="notif-head">
+        Notificări
+        @if (inboxCount() > 0) {
+          <span class="notif-head__count">{{ inboxCount() }}</span>
+        }
+      </div>
+      @if (notifications().length > 0) {
+        @for (n of notifications(); track n.id) {
+          <button mat-menu-item type="button" (click)="openReferat(n.id)">
+            <span class="notif-item">
+              <span class="notif-item__title">{{ n.articol }}</span>
+              <span class="notif-item__sub">
+                {{ n.requester?.name }} · așteaptă decizia ta
+              </span>
+            </span>
+          </button>
+        }
+      } @else {
+        <div class="notif-empty">Nu ai notificări noi.</div>
+      }
+    </mat-menu>
+
     <app-avatar [name]="userName()" size="sm" />
   </header>
 
@@ -48,6 +81,12 @@
         <app-icon name="list" [size]="18" />
         <span class="nav-text">Toate referatele</span>
       </a>
+      @if (isAdmin()) {
+        <a class="nav-item" routerLink="/admin/flux" routerLinkActive="active">
+          <app-icon name="sliders" [size]="18" />
+          <span class="nav-text">Administrare flux</span>
+        </a>
+      }
 
       <span class="spacer"></span>
 

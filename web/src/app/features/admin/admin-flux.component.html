@@ -1,0 +1,121 @@
+<div class="af-page">
+  <div class="af-head">
+    <div>
+      <h1 class="page-title">Administrare flux</h1>
+      <p class="page-sub">
+        Configurează pașii traseului de avizare. Fiecare pas se aplică mereu sau
+        doar când condiția lui este îndeplinită la crearea referatului.
+      </p>
+    </div>
+    <a mat-stroked-button routerLink="/referat-nou" class="af-preview-link">
+      <app-icon name="file-plus" [size]="16" />
+      <span>Testează pe un referat nou</span>
+    </a>
+  </div>
+
+  <div class="av-card av-card-pad af-card">
+    <div class="af-wf-name">
+      <span class="eyebrow">Flux activ</span>
+      <span class="af-wf-name__value">{{ workflowName() }}</span>
+    </div>
+
+    <div class="af-steps">
+      @for (step of steps(); track $index) {
+        <div class="af-step">
+          <div class="af-step__order">{{ $index + 1 }}</div>
+
+          <div class="af-step__fields">
+            <div class="af-field">
+              <label class="af-label">Rol aprobator</label>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-select [(ngModel)]="step.role">
+                  @for (r of approverRoles; track r) {
+                    <mat-option [value]="r">{{ roleLabel[r] }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="af-field af-field--grow">
+              <label class="af-label">Etichetă pas</label>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <input matInput type="text" [(ngModel)]="step.label" placeholder="ex. Avizare șef ierarhic" />
+              </mat-form-field>
+            </div>
+
+            <div class="af-field">
+              <label class="af-label">Se aplică</label>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-select [(ngModel)]="step.condKind">
+                  @for (k of condKinds; track k) {
+                    <mat-option [value]="k">{{ condLabel[k] }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            @if (step.condKind === 'value_gte') {
+              <div class="af-field af-field--threshold">
+                <label class="af-label">Prag (lei)</label>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <input matInput type="number" min="0" [(ngModel)]="step.threshold" />
+                </mat-form-field>
+              </div>
+            }
+          </div>
+
+          <div class="af-step__actions">
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Mută mai sus"
+              title="Mută mai sus"
+              [disabled]="$first"
+              (click)="moveUp($index)"
+            >
+              <app-icon name="arrow-up" [size]="16" />
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Mută mai jos"
+              title="Mută mai jos"
+              [disabled]="$last"
+              (click)="moveDown($index)"
+            >
+              <app-icon name="arrow-down" [size]="16" />
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              class="af-remove"
+              aria-label="Șterge pasul"
+              title="Șterge pasul"
+              (click)="removeStep($index)"
+            >
+              <app-icon name="trash" [size]="16" />
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <button mat-stroked-button type="button" class="af-add" (click)="addStep()">
+      <app-icon name="plus" [size]="16" />
+      <span>Adaugă pas</span>
+    </button>
+  </div>
+
+  <div class="af-actions">
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      [disabled]="saving()"
+      (click)="save()"
+    >
+      <app-icon name="check" [size]="16" />
+      <span>Salvează fluxul</span>
+    </button>
+  </div>
+</div>

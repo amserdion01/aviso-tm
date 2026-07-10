@@ -39,3 +39,20 @@ export class DataRoPipe implements PipeTransform {
     return withTime ? formatDataTimeRo(iso) : formatDataRo(iso);
   }
 }
+
+/** 348160 → "340 KB"; 2621440 → "2,5 MB" (Romanian decimal comma). */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(1).replace('.', ',')} MB`;
+}
+
+@Pipe({ name: 'bytes', standalone: true })
+export class BytesPipe implements PipeTransform {
+  transform(value: number | null | undefined): string {
+    if (value == null) return '—';
+    return formatBytes(value);
+  }
+}

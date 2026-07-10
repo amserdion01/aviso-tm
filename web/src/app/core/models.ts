@@ -7,6 +7,8 @@
 export type Role =
   | 'ANGAJAT'
   | 'SEF_IERARHIC'
+  | 'IT'
+  | 'SSM'
   | 'ACHIZITII'
   | 'DIR_ECONOMIC'
   | 'DIR_GENERAL';
@@ -64,6 +66,18 @@ export interface Transition {
   actor?: User;
 }
 
+/** File attached to a referat; the bytes live in R2, this is the metadata. */
+export interface Attachment {
+  id: string;
+  referatId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedById: string | null;
+  createdAt: string;
+  uploadedBy?: User | null;
+}
+
 export interface Referat {
   id: string;
   articol: string;
@@ -71,12 +85,16 @@ export interface Referat {
   justificare: string;
   centruCost: string;
   valoareLei: number;
+  necesitaIt: boolean;
+  necesitaSsm: boolean;
   requesterId: string;
+  workflowId: string | null;
   status: ReferatStatus;
   createdAt: string;
   requester?: User;
   tasks: ApprovalTask[];
   transitions: Transition[];
+  attachments: Attachment[];
 }
 
 export interface CreateReferatPayload {
@@ -85,13 +103,75 @@ export interface CreateReferatPayload {
   justificare: string;
   centruCost: string;
   valoareLei: number;
+  necesitaIt: boolean;
+  necesitaSsm: boolean;
   requesterId: string;
+}
+
+// ============================================================
+//  Configurable workflow (mirror of the API's Workflow / WorkflowStep +
+//  the condition engine in api/src/config/condition.ts).
+// ============================================================
+
+/** Attributes a routing condition can branch on. */
+export interface RoutingContext {
+  valoareLei: number;
+  necesitaIt: boolean;
+  necesitaSsm: boolean;
+}
+
+/** A step's routing predicate; null = the step always applies. */
+export type Condition =
+  | { field: 'valoareLei'; op: 'gte' | 'gt' | 'lt'; value: number }
+  | { field: 'necesitaIt'; eq: boolean }
+  | { field: 'necesitaSsm'; eq: boolean }
+  | { all: Condition[] }
+  | { any: Condition[] }
+  | null;
+
+export interface WorkflowStep {
+  id: string;
+  workflowId: string;
+  order: number;
+  role: Role;
+  label: string;
+  appliesWhen: Condition;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  steps: WorkflowStep[];
+}
+
+/** Client-side mirror of api/src/config/condition.ts `applies` — powers the
+ * live routing preview on "Referat nou" without another API round-trip. */
+export function appliesClient(condition: Condition, ctx: RoutingContext): boolean {
+  if (condition == null) return true;
+  if ('all' in condition) return condition.all.every((c) => appliesClient(c, ctx));
+  if ('any' in condition) return condition.any.some((c) => appliesClient(c, ctx));
+  switch (condition.field) {
+    case 'necesitaIt':
+      return ctx.necesitaIt === condition.eq;
+    case 'necesitaSsm':
+      return ctx.necesitaSsm === condition.eq;
+    case 'valoareLei': {
+      const v = ctx.valoareLei;
+      if (condition.op === 'gte') return v >= condition.value;
+      if (condition.op === 'gt') return v > condition.value;
+      return v < condition.value;
+    }
+  }
 }
 
 // ---- Ordered role list (the full approval chain order) ----
 export const ROLES: Role[] = [
   'ANGAJAT',
   'SEF_IERARHIC',
+  'IT',
+  'SSM',
   'ACHIZITII',
   'DIR_ECONOMIC',
   'DIR_GENERAL',
@@ -101,6 +181,8 @@ export const ROLES: Role[] = [
 export const ROLE_LABEL: Record<Role, string> = {
   ANGAJAT: 'Angajat',
   SEF_IERARHIC: 'Șef ierarhic',
+  IT: 'Serviciul IT',
+  SSM: 'Responsabil SSM',
   ACHIZITII: 'Birou Achiziții',
   DIR_ECONOMIC: 'Director Economic',
   DIR_GENERAL: 'Director General',
@@ -110,6 +192,8 @@ export const ROLE_LABEL: Record<Role, string> = {
 export const ROLE_SHORT: Record<Role, string> = {
   ANGAJAT: 'Angajat',
   SEF_IERARHIC: 'Șef ierarhic',
+  IT: 'IT',
+  SSM: 'SSM',
   ACHIZITII: 'Achiziții',
   DIR_ECONOMIC: 'Dir. economic',
   DIR_GENERAL: 'Dir. general',

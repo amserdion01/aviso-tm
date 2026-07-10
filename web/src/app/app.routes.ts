@@ -35,6 +35,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/detaliu/detaliu.component').then((m) => m.DetaliuComponent),
       },
+      {
+        path: 'admin/flux',
+        loadComponent: () =>
+          import('./features/admin/admin-flux.component').then((m) => m.AdminFluxComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

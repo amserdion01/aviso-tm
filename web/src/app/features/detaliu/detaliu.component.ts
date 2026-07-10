@@ -26,7 +26,7 @@ import {
   STATUS_KEY,
   StatusKey,
 } from '../../core/models';
-import { LeiPipe, DataRoPipe, formatDataTimeRo } from '../../core/format';
+import { LeiPipe, DataRoPipe, BytesPipe, formatDataTimeRo } from '../../core/format';
 import { IconComponent } from '../../shared/icon.component';
 import { StatusBadgeComponent } from '../../shared/status-badge.component';
 import { StepperComponent, StepperStep, StepStatus } from '../../shared/stepper.component';
@@ -56,6 +56,7 @@ type PreselectAction = 'back' | 'reject' | null;
     MatButtonModule,
     LeiPipe,
     DataRoPipe,
+    BytesPipe,
     IconComponent,
     StatusBadgeComponent,
     StepperComponent,
@@ -138,6 +139,53 @@ export class DetaliuComponent {
   /** Re-fetch after an action so the stepper, istoric and panel stay in sync. */
   private reload(): void {
     this.fetch();
+  }
+
+  // ---- Atașamente --------------------------------------------------------------
+
+  readonly uploadingFiles = signal(false);
+
+  /** Files can still be added while the flow is open. */
+  readonly canAttach = computed(() => {
+    const s = this.referat()?.status;
+    return s === 'IN_ASTEPTARE' || s === 'TRIMIS_INAPOI';
+  });
+
+  attachmentUrl(attachmentId: string): string {
+    return this.api.attachmentDownloadUrl(this.id(), attachmentId);
+  }
+
+  /** Print-ready PDF of the referat — available to anyone, in any state. */
+  pdfUrl(): string {
+    return this.api.referatPdfUrl(this.id());
+  }
+
+  onAttachFiles(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    const user = this.session.currentUser();
+    if (files.length === 0 || !user) return;
+
+    this.uploadingFiles.set(true);
+    this.api.uploadAttachments(this.id(), files, user.id).subscribe({
+      next: (r) => {
+        this.referat.set(r);
+        this.uploadingFiles.set(false);
+        this.snackBar.open('Fișiere adăugate la referat.', undefined, {
+          duration: 3500,
+          panelClass: ['aviso-toast', 'tone-success'],
+        });
+      },
+      error: (err) => {
+        this.uploadingFiles.set(false);
+        this.snackBar.open(
+          err?.error?.message ?? 'Fișierele nu au putut fi încărcate.',
+          undefined,
+          { duration: 5000, panelClass: ['aviso-toast', 'tone-error'] },
+        );
+      },
+    });
   }
 
   // ---- Derived view state ----------------------------------------------------

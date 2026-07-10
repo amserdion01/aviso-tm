@@ -1,126 +1,170 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Aviso TM
 
 Internal **"referat de necesitate"** (requisition) approval-workflow **demo** for a water
-utility in **Timișoara**. This is a clickable proposal demo with a **REAL backend** but
-**NO real authentication** (the acting user/role is faked, sent from the client). The entire
-UI is in **Romanian**.
+utility in **Timișoara**. Clickable proposal demo with a **REAL backend** but **NO real
+authentication** — the acting user/role is faked and sent from the client on every request.
+The entire UI is in **Romanian**.
 
-> The full build brief is in [`PROMPT.md`](./PROMPT.md). Start there.
+pnpm workspace monorepo, **built and verified**:
+- **`/api`** — NestJS 10 + Prisma 6 + PostgreSQL, REST/JSON.
+- **`/web`** — Angular 20 (standalone components + signals) + Angular Material, themed to the
+  Aviso design system.
 
-## Current status
-**Built.** Monorepo with `/api` (NestJS + Prisma + Postgres, complete & verified) and `/web`
-(Angular 20 standalone + signals + Material, themed to the Aviso design system, verified against
-the live API). Postgres runs via Docker Compose on host port **5434**. See [`README.md`](./README.md)
-for full run/deploy details.
+The original full build brief is in [`PROMPT.md`](./PROMPT.md); run/deploy details are in
+[`README.md`](./README.md).
 
 ## Commands
+
 Run from the repo root (pnpm workspace):
 ```bash
 pnpm install            # install api + web
-pnpm db:up              # start Postgres (docker compose, host port 5434)
+pnpm db:up              # start Postgres via docker compose (host port 5434)
 cp api/.env.example api/.env
 pnpm api:migrate        # prisma migrate dev
-pnpm api:seed           # seed ~6 referate (both paths, mid-chain, finalized)
-pnpm api:start          # NestJS API → http://localhost:3000  (start:dev, watch)
+pnpm api:seed           # reset + seed the active workflow, IT/SSM users & ~19 referate
+pnpm api:start          # NestJS API → http://localhost:3001  (nest start --watch; PORT in api/.env)
 pnpm web:start          # Angular dev server → http://localhost:4200
-pnpm api:build          # production build of the API (dist/main.js)
-pnpm web:build          # production build of the web app (web/dist/aviso-web/browser)
+pnpm api:build          # production build → api/dist/main.js
+pnpm web:build          # production build → web/dist/aviso-web/browser
 ```
-Scope a command to one package with `pnpm --filter api …` / `pnpm --filter web …`. Run a single
-Nest/Prisma command via `pnpm --filter api exec <cmd>` (e.g. `prisma migrate reset`).
+Scope to one package with `pnpm --filter api …` / `pnpm --filter web …`. Run a raw Prisma/Nest
+command via `pnpm --filter api exec <cmd>` (e.g. `pnpm --filter api exec prisma migrate reset`).
 
-The web design tokens live in `web/src/styles/tokens/` and are mapped to one Angular Material
-theme in `web/src/styles.scss` — re-theming to a real brand is a contained change there.
+**Testing/linting:** there is no test suite or linter configured. `web` has a Prettier config
+(100 cols, single quotes) in its `package.json`; `web test` (`ng test`, Karma) exists but there
+are no specs. Verify changes by running the app or hitting the API directly (see the smoke test
+in `README.md`).
 
-## Workflow for building this
-- **Plan mode first.** Before writing any code, present for approval: the monorepo layout,
-  the Prisma schema, and the endpoint list. Do not start coding until that's approved.
-- **Build the backend (`/api`) now and in full** — Prisma migrate + seed working end-to-end,
-  every endpoint testable. Don't wait for the design to start the backend.
-- **Build the frontend (`/web`) only AFTER the Claude Design handoff is attached** (see
-  "Design" below). When building it, **delegate to subagents working in parallel** on disjoint
-  surfaces — e.g. one per screen, plus the app-shell + `ApiService` + the Material theme — then
-  integrate and verify. (This mirrors how the sibling Aviso project was built quickly.)
-- Keep all backend logic as **real, readable code** (no low-code). Scope strictly to the demo.
+## Architecture
 
-## Design (Claude Design handoff — attached later)
-A **Claude Design** handoff bundle (a design system: brand tokens — colors, typography,
-spacing, elevation — reusable components, and full-screen UI kits) **will be attached
-separately once it's ready**. When it arrives:
-- Read its README/chat transcripts and `styles.css` first, then recreate it faithfully in the
-  Angular UI — map its tokens to a single **Angular Material theme** (palette, typography,
-  density) and match its colors / type scale / spacing / component look pixel-for-pixel.
-- Until it's attached, build with clean Material defaults but **keep all styling centralized**
-  (one theme file + design tokens, no scattered inline styles) so re-theming to the brand is a
-  small, contained change.
+### Backend (`/api`) — the workflow engine
 
-## Stack
-- Monorepo with two folders:
-  - **`/api`** — NestJS + Prisma + PostgreSQL, REST API (returns JSON).
-  - **`/web`** — Angular (latest, **standalone components + signals**) + **Angular Material**.
-- Package manager: pnpm (use npm only if pnpm is unavailable).
+The read/write split is the thing to understand first:
+- **`referate/referate.service.ts`** — all **reads** (`inboxForRole`, `findAll`, `findOne`). It
+  owns `REFERAT_INCLUDE`, the shared Prisma `include` shape (requester + tasks + transitions with
+  their users) so every list/detail response has the same shape. Re-exported and reused by the
+  workflow service so responses are consistent.
+- **`referate/workflow.service.ts`** — all **mutations**. `create()` materializes the chain from
+  the **active Workflow** (see below); `approve`/`reject`/`sendBack` all funnel through one private
+  `act()` method. This is where the core state machine lives — read it before changing any
+  workflow behavior.
+- **The approval chain is data-driven (configurable), not hardcoded.** New referate route against
+  the single **active `Workflow`** (`isActive: true`): `create()` loads its ordered `WorkflowStep`s
+  and keeps only the steps whose `appliesWhen` condition matches the referat, re-numbering the
+  surviving tasks to a contiguous 1..n `stepOrder`.
+- **`config/condition.ts`** — the pure condition engine: the `Condition` type + `applies(condition,
+  ctx)` evaluated against a `RoutingContext` (`valoareLei`, `necesitaIt`, `necesitaSsm`). Conditions
+  are value-threshold / boolean-flag comparisons plus `all`/`any` combinators; `null` = always
+  applies. The web app mirrors this as `appliesClient()` in `core/models.ts` for the live preview.
+- **`config/workflow.config.ts`** — only the default threshold constant `APPROVAL_THRESHOLD_LEI`
+  (default 5000, override via env), used by the **seed** when building the standard workflow's
+  director-branch steps. The live routing rule now lives in the DB (Workflow steps), not in code.
 
-## Domain model (Prisma)
-- **User**(id, name, role) — roles: `ANGAJAT`, `SEF_IERARHIC`, `ACHIZITII`, `DIR_ECONOMIC`, `DIR_GENERAL`.
-- **Referat**(id, articol, cantitate, justificare, centruCost, valoareLei `Int`, requesterId, status, createdAt)
-  — status: `IN_ASTEPTARE` | `APROBAT` | `RESPINS` | `TRIMIS_INAPOI` | `FINALIZAT`.
+**Invariants enforced in code (do not break these):**
+- **Every mutating action writes a `Transition` row in the SAME `prisma.$transaction`** that
+  advances the workflow. `act()` and `create()` both do this.
+- **`Transition` is append-only** — code only ever INSERTs; never UPDATE/DELETE.
+- **Money is integer lei** (`valoareLei: Int`) — never a float.
+- **Faked auth**: the acting user id comes from the request body/query. `act()` still enforces
+  that the acting user's role matches the active step's role (403 otherwise).
+
+**The state machine** (in `act()`):
+- Active step = the single `ApprovalTask` with status `WAITING`; the rest start `PENDING`.
+- **Approve** → current task `APPROVED`, flip next open task to `WAITING`; if none left, referat
+  → `FINALIZAT`.
+- **Reject** → current task `REJECTED`, referat → `RESPINS` (flow ends). Comment required.
+- **Send back** → current task `SENT_BACK`, re-activate the immediately previous step (reset to
+  `WAITING`, clearing its prior action). Referat → `TRIMIS_INAPOI`. Comment required.
+
+`main.ts` enables CORS for `CORS_ORIGIN` and a global `ValidationPipe`; DTOs in
+`referate/dto/` are the validation contract.
+
+### Domain model (Prisma — `api/prisma/schema.prisma`)
+- **User**(id, name, role) — roles: `ANGAJAT`, `SEF_IERARHIC`, `IT`, `SSM`, `ACHIZITII`, `DIR_ECONOMIC`, `DIR_GENERAL`.
+  (`IT` and `SSM` are the approvers for the conditional flag steps.)
+- **Referat**(id, articol, cantitate, justificare, centruCost, valoareLei `Int`, **necesitaIt**, **necesitaSsm**, requesterId, **workflowId?**, status, createdAt)
+  — status: `IN_ASTEPTARE` | `APROBAT` | `RESPINS` | `TRIMIS_INAPOI` | `FINALIZAT`. The two boolean
+  flags are routing inputs; `workflowId` records which workflow materialized the chain.
 - **ApprovalTask**(id, referatId, stepOrder, role, status, effectiveApproverId, actedById, actedAt, comment)
-  — status: `PENDING` | `WAITING` | `APPROVED` | `REJECTED` | `SENT_BACK`.
-- **Transition**(id, referatId, fromState, toState, actorId, comment, createdAt)
-  — **APPEND-ONLY audit trail**.
+  — status: `PENDING` | `WAITING` | `APPROVED` | `REJECTED` | `SENT_BACK`. Unique `(referatId, stepOrder)`.
+- **Transition**(id, referatId, fromState, toState, actorId, comment, createdAt) — **append-only audit trail**.
+- **Workflow**(id, name, isActive, createdAt) — a configurable approval chain. Exactly one is active.
+- **WorkflowStep**(id, workflowId, order, role, label, **appliesWhen** `Json?`) — one ordered step;
+  `appliesWhen` is a `Condition` (null = always applies). Unique `(workflowId, order)`.
+- **Attachment**(id, referatId, fileName, storageKey `@unique`, contentType, sizeBytes, uploadedById?, createdAt)
+  — metadata for a file whose bytes live in **Cloudflare R2** under `storageKey`
+  (`referate/<referatId>/<uuid>-<fileName>`). Uploads allowed only while the referat is
+  `IN_ASTEPTARE` / `TRIMIS_INAPOI`; no delete (demo). Uploads do NOT write a `Transition`.
 
-## Routing rule (the core — threshold configurable, default 5000 lei)
-On submit, materialize the approval chain as `ApprovalTask` rows:
-1. `SEF_IERARHIC` → 2. `ACHIZITII`
-   - if `valoareLei >= 5000`: add 3. `DIR_ECONOMIC` → 4. `DIR_GENERAL`
-   - if `valoareLei < 5000`: chain ends after `ACHIZITII` (simplified path)
-- The active step is the single task with status `WAITING`; the rest start `PENDING`.
-- **Approve**: mark current `WAITING` task `APPROVED`, flip the next `PENDING` task to `WAITING`;
-  if none left → referat `FINALIZAT`.
-- **Reject**: ends the flow (referat `RESPINS`).
-- **Send back**: re-activate the immediately previous step.
-
-## Hard rules
-- **Every action writes a `Transition` row in the SAME DB transaction** that advances the workflow.
-- `Transition` is **append-only** — only INSERT, never UPDATE/DELETE.
-- Money is stored as **integer lei** (`valoareLei: Int`) — never a float.
-- **Auth is faked**: the acting user/role comes from the request body/query, NOT a session.
-- Enable **CORS** for the Angular dev origin.
-- The routing threshold (5000) must be a single configurable constant.
-
-## Endpoints (REST, JSON)
+### Endpoints (REST, JSON)
+- `GET  /users` — all users (backs the role switcher).
 - `GET  /referate?role=...` — inbox: referate with a `WAITING` task for that role.
-- `GET  /referate/all` — overview list with statuses.
+- `GET  /referate/all` — overview list with statuses (declared before `:id` to avoid route capture).
 - `GET  /referate/:id` — full detail + tasks + transitions (istoric).
-- `POST /referate` — create + materialize chain from `valoareLei`.
+- `POST /referate` — create + materialize chain from the active workflow. Body adds optional
+  `necesitaIt` / `necesitaSsm` booleans (routing flags).
 - `POST /referate/:id/approve` — body `{ actingUserId, comment? }`.
 - `POST /referate/:id/reject` — body `{ actingUserId, comment (required) }`.
 - `POST /referate/:id/send-back` — body `{ actingUserId, comment (required) }`.
+- `GET  /referate/:id/pdf` — the referat as a print-ready A4 PDF, any state, no auth gate
+  (served `inline`). Template: `referate/referat-document.ts` (self-contained HTML, RO labels);
+  conversion: `pdf/pdf.service.ts` (Puppeteer, launched per request).
+- `POST /referate/:id/atasamente` — multipart (`files` max 5 × 10 MB + `actingUserId`); content-type
+  whitelist (pdf/images/office/text). Handled by `referate/attachments.service.ts` +
+  `storage/r2.service.ts` (S3 client for R2, lazy-init so missing `R2_*` env vars 503 only here).
+- `GET  /referate/:id/atasamente/:attId/download` — 302 redirect to a presigned R2 GET URL (15 min).
+- `GET  /workflows` — list workflows with step counts.
+- `GET  /workflows/active` — the active workflow + ordered steps (drives new referate + the live preview).
+- `GET  /workflows/:id` — one workflow + ordered steps.
+- `PUT  /workflows/:id/steps` — replace the entire ordered step list in one transaction (add/remove/reorder/edit).
 
-## Frontend (`/web`)
-- A single **`ApiService`** wraps all HTTP calls; API base URL from `environment`.
-- Consistent app shell: top bar (app name + role switcher) + left nav; reused Material
-  components and **one type scale** across screens. Clean, light, desktop-first.
-- Screens: **Autentificare** (role switcher sets the acting user), **Referat nou** (validated
-  Material form, hints which path the value triggers), **Inboxul meu** (Material table + quick
-  Aprobă/Respinge/Trimite înapoi + empty state), **Detaliu referat** (data + Material **stepper**
-  visibly different for <5000 vs ≥5000, per-step state, action panel with comment required for
-  reject/send-back, read-only istoric timeline), **Toate referatele** (overview table with status
-  chips).
+### Frontend (`/web`) — Angular standalone + signals
+- **`core/api.service.ts`** — the single HTTP gateway for every API call. Base URL from
+  `environments/environment.ts`. Add all new calls here, nowhere else.
+- **`core/session.service.ts`** — the faked-auth session, signal-based. Holds the loaded users
+  and `actingRole` (persisted to `localStorage`); `currentUser` is the seeded user for that role.
+  Exposes `inboxCount` (drives the nav badge) — call `refreshInboxCount()` after any workflow
+  action. `core/auth.guard.ts` gates the shell on an acting role being set.
+- **`shell/`** = app shell (top bar with role switcher + left nav). Routes lazy-load each feature
+  (`app.routes.ts`). Feature screens live in `features/`: `login` (Autentificare — **no autologin**;
+  the form starts empty, demo-account rows fill credentials on click), `inbox` (Inboxul meu),
+  `referat-nou` (Referat nou — includes the IT/SSM flag checkboxes + a live routing preview
+  computed from the active workflow), `detaliu` (Detaliu referat — the approval stepper),
+  `toate` (Toate referatele), `admin` (**Administrare flux** at `/admin/flux` — edit the active
+  workflow's steps; the nav entry is shown only when the acting role is `DIR_GENERAL`). `shared/`
+  holds reusable presentational components (status badge, stepper, audit timeline, avatar, empty
+  state, icon). Icons are inline SVG via `shared/icon.component.ts` (add glyphs to its registry).
 
-## Romanian copy
-- Status vocabulary (use these exact labels): *În așteptare, Aprobat, Respins, Trimis înapoi, Finalizat*.
-- Buttons are imperative verbs: *Aprobă, Respinge, Trimite înapoi, Trimite referatul*.
-- Correct diacritics (ș, ț, ă, î, â). No emoji.
+### Theming — single source of truth
+Design tokens live in `web/src/styles/tokens/*.css` (colors, typography, spacing, elevation,
+fonts) and are mapped onto **one** Angular Material theme in `web/src/styles.scss`. Re-theming to
+a real brand is a contained change there — do NOT scatter inline styles or per-component colors.
 
-## Seed
-- ~6 realistic Romanian referate spanning **both paths** + one user per role; include a couple
-  already mid-chain and one `FINALIZAT` so the demo looks alive.
-- Examples: "Laptop Dell — Birou IT — 4.200 lei" (short path),
-  "Pompă submersibilă — Stație captare — 18.500 lei" (full path).
-- Expose a `seed` script (pnpm/npm). Provide `.env.example` with `DATABASE_URL`.
+## Romanian copy (use these exact labels)
+- Statuses: *În așteptare, Aprobat, Respins, Trimis înapoi, Finalizat*.
+- Buttons (imperative verbs): *Aprobă, Respinge, Trimite înapoi, Trimite referatul*.
+- Correct diacritics (ș, ț, ă, î, â) throughout. No emoji.
 
-## Deliverables
-- Root **README**: how to run `/api` (migrate + seed + start) and `/web` (serve) locally, plus
-  deploy notes — `/web` → Vercel or Netlify (free), `/api` + Postgres → Railway or Render
-  (free/hobby), with exact build/output settings.
+## Seed (`api/prisma/seed.ts`)
+`pnpm api:seed` **resets** the DB and seeds: one user per role (incl. `IT` and `SSM`), the active
+**"Flux standard achiziții"** workflow (6 conditional steps: SEF → IT?/SSM? → ACHIZITII →
+DIR_ECONOMIC?/DIR_GENERAL? by value), and ~19 realistic Romanian referate spanning both value
+paths plus the IT/SSM flag branches (a couple mid-chain, one `FINALIZAT`, one `RESPINS`, one sent
+back). Each referat's chain is built by replaying the same condition engine, so tasks + the
+append-only transition trail stay consistent. Examples: "Laptop Dell — 4.200 lei" (short),
+"Pompă submersibilă — 18.500 lei" (full), "Licențe antivirus — 3.200 lei + IT".
+
+## Config (`api/.env`, see `.env.example`)
+- `DATABASE_URL` — Postgres (defaults match `docker-compose.yml`, host port **5434**).
+- `PORT` — API port. Code default is 3000, but the committed `.env` sets **3001** (and the web
+  app's `environment.ts` points there), so the API runs on **http://localhost:3001** by default.
+- `CORS_ORIGIN` — allowed origin (default `http://localhost:4200`).
+- `APPROVAL_THRESHOLD_LEI` — default threshold used by the seed (default 5000).
+- `R2_ENDPOINT` (or `R2_ACCOUNT_ID`), `R2_ACCESS_KEY_ID` (alias `R2_ACCESS_KEY`),
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — Cloudflare R2 (attachment storage). `R2_ENDPOINT` is the
+  bucket's S3 API URL without the bucket path — required for jurisdiction buckets (e.g. `.eu.`).
+  Optional for the rest of the demo; attachment endpoints 503 without them.

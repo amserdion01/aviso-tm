@@ -1,7 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
+  signal,
 } from '@angular/core';
 import {
   FormBuilder,
@@ -15,11 +17,18 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ApiService } from '../../core/api.service';
 import { SessionService } from '../../core/session.service';
-import { APPROVAL_THRESHOLD_LEI, CreateReferatPayload } from '../../core/models';
+import { BytesPipe } from '../../core/format';
+import {
+  appliesClient,
+  CreateReferatPayload,
+  ROLE_SHORT,
+  Workflow,
+} from '../../core/models';
 import { IconComponent } from '../../shared/icon.component';
 
 /** Cost centres offered in the form (matches the design handoff). */
@@ -39,6 +48,8 @@ interface ReferatForm {
   centruCost: FormControl<string>;
   justificare: FormControl<string>;
   valoareLei: FormControl<number | null>;
+  necesitaIt: FormControl<boolean>;
+  necesitaSsm: FormControl<boolean>;
 }
 
 @Component({
@@ -51,7 +62,9 @@ interface ReferatForm {
     MatInputModule,
     MatSelectModule,
     MatButtonModule,
+    MatCheckboxModule,
     IconComponent,
+    BytesPipe,
   ],
   templateUrl: './referat-nou.component.html',
   styleUrl: './referat-nou.component.scss',
@@ -63,8 +76,13 @@ export class ReferatNouComponent {
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
 
-  readonly threshold = APPROVAL_THRESHOLD_LEI;
   readonly centruOptions = CENTRU_OPTIONS;
+
+  /** The active workflow, loaded once — drives the live routing preview. */
+  private readonly workflow = signal<Workflow | null>(null);
+
+  /** Files picked for upload (sent right after the referat is created). */
+  readonly selectedFiles = signal<File[]>([]);
 
   readonly form = this.fb.group<ReferatForm>({
     articol: this.fb.control('', {
@@ -85,19 +103,39 @@ export class ReferatNouComponent {
     valoareLei: this.fb.control<number | null>(null, {
       validators: [Validators.required, Validators.min(1)],
     }),
+    necesitaIt: this.fb.control(false, { nonNullable: true }),
+    necesitaSsm: this.fb.control(false, { nonNullable: true }),
   });
 
-  /** Live value of the estimated amount, drives the routing-path banner. */
-  private readonly valoare = toSignal(this.form.controls.valoareLei.valueChanges, {
-    initialValue: this.form.controls.valoareLei.value,
+  /** Live form values that drive the routing preview. */
+  private readonly formValue = toSignal(this.form.valueChanges, {
+    initialValue: this.form.getRawValue(),
   });
 
-  /** 'short' (below threshold), 'full' (at/above threshold) or null (no value). */
-  readonly path = (): 'short' | 'full' | null => {
-    const v = this.valoare();
-    if (v == null || v <= 0) return null;
-    return v >= this.threshold ? 'full' : 'short';
-  };
+  /**
+   * The effective approval chain (short role labels) for the current value +
+   * flags, resolved from the active workflow's conditions. Empty until a value
+   * is entered. This is the live, workflow-driven replacement for the old
+   * fixed short/full banner.
+   */
+  readonly previewSteps = computed<string[]>(() => {
+    const wf = this.workflow();
+    const v = this.form.controls.valoareLei.value;
+    void this.formValue(); // re-run on any form change (value + checkboxes)
+    if (!wf || v == null || v <= 0) return [];
+    const ctx = {
+      valoareLei: Number(v),
+      necesitaIt: this.form.controls.necesitaIt.value,
+      necesitaSsm: this.form.controls.necesitaSsm.value,
+    };
+    return wf.steps
+      .filter((s) => appliesClient(s.appliesWhen, ctx))
+      .map((s) => ROLE_SHORT[s.role]);
+  });
+
+  constructor() {
+    this.api.getActiveWorkflow().subscribe((wf) => this.workflow.set(wf));
+  }
 
   submit(): void {
     if (this.form.invalid) {
@@ -115,23 +153,53 @@ export class ReferatNouComponent {
       justificare: raw.justificare.trim(),
       centruCost: raw.centruCost,
       valoareLei: Number(raw.valoareLei),
+      necesitaIt: raw.necesitaIt,
+      necesitaSsm: raw.necesitaSsm,
       requesterId: requester.id,
     };
 
     this.api.create(payload).subscribe((created) => {
-      this.snack.open(
-        'Referat trimis — a intrat pe traseul de avizare.',
-        undefined,
-        { duration: 4000, panelClass: ['aviso-toast', 'tone-success'] },
-      );
-      this.router.navigate(['/referat', created.id]);
+      const files = this.selectedFiles();
+      if (files.length === 0) {
+        this.afterCreate(created.id);
+        return;
+      }
+      // The referat exists; attach the files, then navigate either way.
+      this.api.uploadAttachments(created.id, files, requester.id).subscribe({
+        next: () => this.afterCreate(created.id),
+        error: () => {
+          this.snack.open(
+            'Referatul a fost creat, dar fișierele nu au putut fi încărcate.',
+            undefined,
+            { duration: 5000, panelClass: ['aviso-toast', 'tone-warning'] },
+          );
+          this.router.navigate(['/referat', created.id]);
+        },
+      });
     });
   }
 
-  saveDraft(): void {
-    this.snack.open('Schiță salvată', undefined, {
-      duration: 3000,
-      panelClass: ['aviso-toast', 'tone-info'],
-    });
+  private afterCreate(id: string): void {
+    this.snack.open(
+      'Referat trimis — a intrat pe traseul de avizare.',
+      undefined,
+      { duration: 4000, panelClass: ['aviso-toast', 'tone-success'] },
+    );
+    this.router.navigate(['/referat', id]);
+  }
+
+  // ---- File picker ----
+
+  onFilesPicked(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const picked = Array.from(input.files ?? []);
+    if (picked.length === 0) return;
+    // Append to the current selection, capped at 5 files total.
+    this.selectedFiles.update((current) => [...current, ...picked].slice(0, 5));
+    input.value = ''; // allow re-picking the same file
+  }
+
+  removeFile(index: number): void {
+    this.selectedFiles.update((list) => list.filter((_, i) => i !== index));
   }
 }

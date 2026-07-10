@@ -14,6 +14,8 @@ datasource db {
 enum Role {
   ANGAJAT
   SEF_IERARHIC
+  IT
+  SSM
   ACHIZITII
   DIR_ECONOMIC
   DIR_GENERAL
@@ -44,6 +46,7 @@ model User {
   approverTasks      ApprovalTask[] @relation("effectiveApprover")
   actedTasks         ApprovalTask[] @relation("actedBy")
   transitions        Transition[]   @relation("actor")
+  attachments        Attachment[]   @relation("uploader")
 }
 
 model Referat {
@@ -53,13 +56,65 @@ model Referat {
   justificare String
   centruCost  String
   valoareLei  Int
+  necesitaIt  Boolean       @default(false)
+  necesitaSsm Boolean       @default(false)
   requesterId String
+  workflowId  String?
   status      ReferatStatus @default(IN_ASTEPTARE)
   createdAt   DateTime      @default(now())
 
   requester   User           @relation("requester", fields: [requesterId], references: [id])
+  workflow    Workflow?      @relation(fields: [workflowId], references: [id])
   tasks       ApprovalTask[]
   transitions Transition[]
+  attachments Attachment[]
+}
+
+/// A file attached to a referat (offer, spec, photo …). The bytes live in
+/// Cloudflare R2 under `storageKey`; this row is the metadata. Uploads are
+/// allowed only while the referat is IN_ASTEPTARE or TRIMIS_INAPOI.
+model Attachment {
+  id           String   @id @default(cuid())
+  referatId    String
+  fileName     String
+  storageKey   String   @unique
+  contentType  String
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  referat    Referat @relation(fields: [referatId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation("uploader", fields: [uploadedById], references: [id])
+
+  @@index([referatId])
+}
+
+/// A configurable approval chain. New referate materialize their tasks from the
+/// steps of the single active workflow (isActive = true), evaluating each step's
+/// appliesWhen condition against the referat. Editable from the admin screen.
+model Workflow {
+  id        String         @id @default(cuid())
+  name      String
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+
+  steps     WorkflowStep[]
+  referate  Referat[]
+}
+
+/// One ordered step of a Workflow. `appliesWhen` is a JSON condition (null = the
+/// step always applies); see api/src/config/condition.ts for the shape.
+model WorkflowStep {
+  id          String @id @default(cuid())
+  workflowId  String
+  order       Int
+  role        Role
+  label       String
+  appliesWhen Json?
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, order])
 }
 
 model ApprovalTask {
