@@ -1,0 +1,12 @@
+# Keep the build context small and reproducible.
+**/node_modules
+**/dist
+web/.angular
+**/.env
+**/.env*.local
+.git
+.github
+coverage
+*.log
+.DS_Store
+.vercel

@@ -181,29 +181,38 @@ Demo login: click a demo account row to fill its **email**, then type the demo p
 
 ## Deploy notes
 
-### `/api` + PostgreSQL → Railway or Render (free/hobby)
+The repo is a monorepo but deploys as **two services**: the **API → Railway** (via the root
+`Dockerfile`) and the **web → Vercel** (static). Database: **Neon** (or any Postgres).
 
-1. Provision a **PostgreSQL** instance; copy its connection string into `DATABASE_URL`.
-2. Create a web service from the `api/` directory:
-   - **Build:** `pnpm install && pnpm --filter api exec prisma generate && pnpm --filter api build`
-   - **Release / pre-deploy:** `pnpm --filter api exec prisma migrate deploy` (then optionally `pnpm api:seed` once)
-   - **Start:** `pnpm --filter api start:prod` (runs `node dist/main.js`)
-3. Set env vars: `DATABASE_URL`, `PORT` (the platform usually injects it),
-   `CORS_ORIGIN` = the deployed web origin, a **strong `JWT_SECRET`** (`openssl rand -hex 32`),
-   and the four `R2_*` vars for attachment storage.
-   - **Health check path:** point the platform's health check at **`/health`** (public,
-     returns `503` if it can't reach Postgres).
-   - Run `pnpm --filter api test` in CI before deploy (see `.github/workflows/ci.yml`).
-4. PDF generation uses **Puppeteer** (bundled Chromium): make sure the build does NOT set
-   `PUPPETEER_SKIP_DOWNLOAD`, and the image has Chromium's system deps (Railway/Render's
-   default Node images generally work; otherwise add the puppeteer apt packages).
+### `/api` → Railway (Dockerfile) + Neon Postgres
 
-### `/web` → Vercel or Netlify (free)
+The root **`Dockerfile`** builds only the API (multi-stage pnpm workspace) and bundles **system
+Chromium** for Puppeteer PDF generation — validated end-to-end (health + PDF in-container).
+`railway.json` wires the Dockerfile build + the `/health` check.
 
-- **Build:** `pnpm install && pnpm --filter web build`
-- **Output directory:** `web/dist/aviso-web/browser` (Angular's default build output)
-- **SPA rewrite:** route all paths to `index.html` (Vercel: a catch-all rewrite to `/index.html`;
-  Netlify: `/*  /index.html  200`).
+1. **Database — Neon.** Prisma uses two URLs (see `api/.env.example`):
+   - `DATABASE_URL` = the **pooled** endpoint (host with `-pooler`) — used by the running app.
+   - `DIRECT_URL` = the **direct** endpoint (same URL **without** `-pooler`) — used by migrations
+     (`prisma migrate deploy` can't run through Neon's PgBouncer pooler).
+   Both need `?sslmode=require`.
+2. **Railway service** from this repo (root directory = **repo root**, not `api/`): Railway
+   auto-detects the `Dockerfile`. The container runs `prisma migrate deploy` then starts the
+   server; **health check path** is **`/health`** (already set in `railway.json`).
+3. **Env vars** on the service: `DATABASE_URL`, `DIRECT_URL`, a **strong `JWT_SECRET`**
+   (`openssl rand -hex 32`), `CORS_ORIGIN` = the deployed web origin, and the four `R2_*` vars.
+   `PORT` is injected by Railway. Seed once (optional): run `pnpm api:seed` against the DB, or
+   `docker run … aviso-api sh -c "pnpm --filter api exec ts-node prisma/seed.ts"`.
+4. Build the image locally to test: `docker build -t aviso-api .`
+
+> Note: the app also runs on Railway/Render's default Node buildpack, but Puppeteer's Chromium
+> then needs system deps + a persisted cache dir — the Dockerfile removes that whole class of
+> problems, so prefer it.
+
+### `/web` → Vercel
+
+`vercel.json` (repo root) sets the build for the monorepo:
+- **Build:** `pnpm --filter web build` · **Output:** `web/dist/aviso-web/browser` · SPA rewrite
+  to `/index.html` (all preconfigured; import the repo into Vercel and deploy — root = repo root).
 - Set the production API base URL in `web/src/environments/environment.production.ts`
-  (`apiBaseUrl`) to the deployed API origin, and add the deployed web origin to the API's
-  `CORS_ORIGIN`.
+  (`apiBaseUrl`) to the deployed Railway API origin **before building**, and add the deployed
+  Vercel origin to the API's `CORS_ORIGIN`.

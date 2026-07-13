@@ -4,11 +4,18 @@
 
 generator client {
   provider = "prisma-client-js"
+  // native = local dev; the linux targets are for the Docker image / Railway
+  // (amd64 → debian-openssl-3.0.x, arm64 build hosts → linux-arm64-openssl-3.0.x).
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
+  // Runtime connection. On Neon this is the POOLED endpoint (host with `-pooler`).
   url      = env("DATABASE_URL")
+  // Migrations / introspection must bypass the pooler. On Neon this is the
+  // DIRECT endpoint (same URL without `-pooler`). Locally it equals DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
