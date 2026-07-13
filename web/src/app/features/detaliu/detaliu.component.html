@@ -188,9 +188,7 @@
                   (selectionChange)="sendBackChoice.set($event.value)"
                 >
                   @for (t of sendBackTargets(); track t.stepOrder) {
-                    <mat-option [value]="t.stepOrder">
-                      {{ t.stepOrder }}. {{ t.label }}
-                    </mat-option>
+                    <mat-option [value]="t.stepOrder">{{ t.label }}</mat-option>
                   }
                 </mat-select>
                 <mat-hint>Pașii dintre pasul ales și cel curent se reiau.</mat-hint>

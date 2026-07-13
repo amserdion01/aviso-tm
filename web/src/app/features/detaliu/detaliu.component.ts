@@ -272,33 +272,51 @@ export class DetaliuComponent {
 
   // ---- Send-back target (any earlier step) -------------------------------------
 
-  /** Earlier steps the referat can be returned to, in chain order. */
+  /**
+   * Targets the referat can be sent back to, in order: each earlier approval
+   * step, plus the requester (stepOrder 0 = all the way back to depunere).
+   */
   readonly sendBackTargets = computed(() => {
     const r = this.referat();
     const w = this.waitingTask();
     if (!r || !w) return [];
-    return r.tasks
+    const steps = r.tasks
       .filter((t) => t.stepOrder < w.stepOrder)
       .sort((a, b) => a.stepOrder - b.stepOrder)
       .map((t) => ({
         stepOrder: t.stepOrder,
         label:
+          `${t.stepOrder}. ` +
           ROLE_SHORT[t.role] +
           (t.effectiveApprover ? ` — ${t.effectiveApprover.name}` : ''),
       }));
+    // Always offer returning all the way back to the requester.
+    steps.push({
+      stepOrder: 0,
+      label:
+        'Solicitantul' +
+        (r.requester ? ` — ${r.requester.name}` : '') +
+        ' (înapoi la depunere)',
+    });
+    return steps;
   });
 
   /** Explicit choice; null = the default (previous step). */
   readonly sendBackChoice = signal<number | null>(null);
 
-  /** Value shown in the select: the choice, or the previous step. */
+  /** Value shown in the select: the choice, else the previous step (default). */
   readonly sendBackValue = computed(() => {
     const targets = this.sendBackTargets();
     const choice = this.sendBackChoice();
     if (choice != null && targets.some((t) => t.stepOrder === choice)) {
       return choice;
     }
-    return targets.length ? targets[targets.length - 1].stepOrder : null;
+    // Default = the previous approval step; if none (first step), the requester.
+    const approvalSteps = targets.filter((t) => t.stepOrder > 0);
+    if (approvalSteps.length) {
+      return approvalSteps[approvalSteps.length - 1].stepOrder;
+    }
+    return targets.length ? targets[0].stepOrder : null;
   });
 
   /** Tinted note copy for the preselected action (only while it can act). */
@@ -478,11 +496,20 @@ export class DetaliuComponent {
     const r = this.referat();
     if (!r || this.acting() || !this.requireComment()) return;
     const target = this.sendBackValue() ?? undefined;
-    // Was the referat returned to an explicitly chosen (non-previous) step?
     const targets = this.sendBackTargets();
-    const isPrevious =
-      target == null ||
-      (targets.length > 0 && target === targets[targets.length - 1].stepOrder);
+    const approvalSteps = targets.filter((t) => t.stepOrder > 0);
+    let message: string;
+    if (target === 0) {
+      message = 'Trimis înapoi — referatul s-a întors la solicitant.';
+    } else {
+      const isPrevious =
+        target == null ||
+        (approvalSteps.length > 0 &&
+          target === approvalSteps[approvalSteps.length - 1].stepOrder);
+      message = isPrevious
+        ? 'Trimis înapoi — referatul s-a întors la pasul anterior.'
+        : 'Trimis înapoi — referatul s-a întors la pasul ales.';
+    }
     this.acting.set(true);
     this.api.sendBack(r.id, this.commentCtrl.value.trim(), target).subscribe({
       next: () => {
@@ -490,12 +517,7 @@ export class DetaliuComponent {
         this.resetComment();
         this.reload();
         this.session.refreshInboxCount();
-        this.toast(
-          isPrevious
-            ? 'Trimis înapoi — referatul s-a întors la pasul anterior.'
-            : 'Trimis înapoi — referatul s-a întors la pasul ales.',
-          'tone-warning',
-        );
+        this.toast(message, 'tone-warning');
       },
       error: (err) => this.actionError(err),
     });

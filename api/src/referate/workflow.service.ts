@@ -254,21 +254,24 @@ export class WorkflowService {
       );
     }
 
-    // SEND_BACK: resolve + validate the target step before the transaction.
-    // Explicit sendBackTo may point at ANY earlier step; default = previous.
+    // SEND_BACK: resolve + validate the target before the transaction.
+    // - sendBackTo === 0  → all the way back to the requester (no active step);
+    // - sendBackTo >= 1   → ANY earlier step;
+    // - omitted           → the previous step (default).
     let sendBackDest: { id: string; stepOrder: number } | undefined;
+    let toRequester = false;
     if (action === 'SEND_BACK') {
-      sendBackDest =
-        sendBackTo != null
-          ? referat.tasks.find((t) => t.stepOrder === sendBackTo)
-          : this.previousTask(referat.tasks, current.stepOrder);
-      if (
-        sendBackTo != null &&
-        (!sendBackDest || sendBackDest.stepOrder >= current.stepOrder)
-      ) {
-        throw new BadRequestException(
-          'Pasul ales nu este un pas anterior valid.',
-        );
+      if (sendBackTo === 0) {
+        toRequester = true;
+      } else if (sendBackTo != null) {
+        sendBackDest = referat.tasks.find((t) => t.stepOrder === sendBackTo);
+        if (!sendBackDest || sendBackDest.stepOrder >= current.stepOrder) {
+          throw new BadRequestException(
+            'Pasul ales nu este un pas anterior valid.',
+          );
+        }
+      } else {
+        sendBackDest = this.previousTask(referat.tasks, current.stepOrder);
       }
     }
 
@@ -373,8 +376,25 @@ export class WorkflowService {
               comment: null,
             },
           });
+        } else if (toRequester) {
+          // Back to the requester from any step: clear every earlier approval so
+          // the chain visibly restarts. No task is left WAITING; the requester
+          // corrects + resubmits (which re-materializes the chain from step 1).
+          await tx.approvalTask.updateMany({
+            where: {
+              referatId: referat.id,
+              stepOrder: { lt: current.stepOrder },
+              status: TaskStatus.APPROVED,
+            },
+            data: {
+              status: TaskStatus.PENDING,
+              actedById: null,
+              actedAt: null,
+              comment: null,
+            },
+          });
         }
-        // If there is no earlier step, the referat returns to the requester.
+        // No active step left (dest re-activated above, or returned to requester).
         toState = ReferatStatus.TRIMIS_INAPOI;
         note = comment as string;
       }

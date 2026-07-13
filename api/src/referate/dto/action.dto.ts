@@ -26,12 +26,13 @@ export class CommentRequiredDto {
 }
 
 /**
- * Send-back: comment required + an optional target step. `sendBackTo` is the
- * stepOrder of ANY earlier step to return to; omitted = the previous step.
+ * Send-back: comment required + an optional target. `sendBackTo` is the
+ * stepOrder of ANY earlier step to return to; `0` = all the way back to the
+ * requester; omitted = the previous step.
  */
 export class SendBackDto extends CommentRequiredDto {
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   sendBackTo?: number;
 }
