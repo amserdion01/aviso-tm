@@ -1,0 +1,13 @@
+# The api/ package deploys to Railway (Dockerfile), NOT to Vercel. A top-level
+# `api/` directory is special to Vercel — it would treat every api/**/*.ts as a
+# serverless function and try to compile it (without `prisma generate`, hence
+# "@prisma/client has no exported member" build errors). Exclude the sources but
+# keep api/package.json, which pnpm needs to resolve the workspace on install.
+api/**
+!api/package.json
+
+# Never needed for the static web build.
+docker-compose.yml
+Dockerfile
+railway.json
+.github
