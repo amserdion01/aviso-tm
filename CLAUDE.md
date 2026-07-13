@@ -34,10 +34,12 @@ pnpm web:build          # production build → web/dist/aviso-web/browser
 Scope to one package with `pnpm --filter api …` / `pnpm --filter web …`. Run a raw Prisma/Nest
 command via `pnpm --filter api exec <cmd>` (e.g. `pnpm --filter api exec prisma migrate reset`).
 
-**Testing/linting:** there is no test suite or linter configured. `web` has a Prettier config
-(100 cols, single quotes) in its `package.json`; `web test` (`ng test`, Karma) exists but there
-are no specs. Verify changes by running the app or hitting the API directly (see the smoke test
-in `README.md`).
+**Testing/linting:** `api` has Jest unit tests for the pure routing engine —
+`pnpm --filter api test` (`api/src/config/condition.spec.ts`); add specs next to the code as
+`*.spec.ts`. There is no linter configured. `web` has a Prettier config (100 cols, single quotes)
+in its `package.json`; `web test` (`ng test`, Karma) exists but there are no specs. CI runs api
+tests + both builds on push/PR (`.github/workflows/ci.yml`). For behavior not covered by units,
+verify by running the app or hitting the API directly (see the smoke test in `README.md`).
 
 ## Architecture
 
@@ -77,14 +79,25 @@ The read/write split is the thing to understand first:
 
 **The state machine** (in `act()`):
 - Active step = the single `ApprovalTask` with status `WAITING`; the rest start `PENDING`.
+- **Race-safe:** each action transitions the current task via `updateMany({ where: { id,
+  status: WAITING } })` and aborts the transaction if `count !== 1` (409). Two concurrent actions
+  on the same step can't both succeed / double-advance / write duplicate transitions.
 - **Approve** → current task `APPROVED`, flip next open task to `WAITING`; if none left, referat
   → `FINALIZAT`.
 - **Reject** → current task `REJECTED`, referat → `RESPINS` (flow ends). Comment required.
-- **Send back** → current task `SENT_BACK`, re-activate the immediately previous step (reset to
-  `WAITING`, clearing its prior action). Referat → `TRIMIS_INAPOI`. Comment required.
+- **Send back** → current task `SENT_BACK`, re-activate an earlier step (default: the previous
+  one; `sendBackTo` picks ANY earlier step). The destination resets to `WAITING` (action cleared)
+  and every approved step between it and the current one resets to `PENDING` — the chain
+  re-walks forward. Referat → `TRIMIS_INAPOI`. Comment required. If it was the FIRST step, there
+  is no earlier step and the referat returns to the requester, who corrects + resubmits it via
+  `POST /referate/:id/resubmit` (`workflow.service.resubmit`) — re-materializes the chain, restarts
+  at step 1, preserves the Transition trail.
 
-`main.ts` enables CORS for `CORS_ORIGIN` and a global `ValidationPipe`; DTOs in
-`referate/dto/` are the validation contract.
+`main.ts` enables CORS for `CORS_ORIGIN`, `helmet()` security headers (and disables
+`x-powered-by`), and a global `ValidationPipe`; a global `ThrottlerGuard` rate-limits every route
+(login tighter). DTOs in `referate/dto/` are the validation contract; `WorkflowStepInput`
+validates `appliesWhen` structurally via `isCondition` (config/condition.ts), and `applies()` is
+defensive so a malformed condition can never 500 referat creation.
 
 ### Domain model (Prisma — `api/prisma/schema.prisma`)
 - **User**(id, name, **email** `@unique`, **passwordHash** (bcrypt), role) — roles: `ANGAJAT`,
@@ -108,17 +121,28 @@ The read/write split is the thing to understand first:
 ### Endpoints (REST, JSON)
 All routes require `Authorization: Bearer <jwt>` except the two marked public. Identity =
 token user; **no user ids travel in payloads**.
+- `GET  /health` — **public**; liveness/readiness probe (`SELECT 1`), `503` if DB unreachable.
+  For the hosting platform's health check. `@SkipThrottle`.
 - `POST /auth/login` — **public**; body `{ email, parola }` → `{ token, user }` (JWT, 8h).
+  Rate-limited to 10/min per IP (`@Throttle`) — brute-force blunting.
 - `GET  /auth/me` — the authenticated user's profile.
 - `GET  /users` — **public**; demo roster for the login screen (public fields only, never hashes).
 - `GET  /referate` — inbox: referate with a `WAITING` task for the token user's role.
 - `GET  /referate/all` — overview list with statuses (declared before `:id` to avoid route capture).
+- `GET  /referate/mine` — the token user's own submitted referate (drives "Referatele mele" +
+  the requester's bell notifications). Declared before `:id`.
 - `GET  /referate/:id` — full detail + tasks + transitions (istoric).
 - `POST /referate` — create + materialize chain from the active workflow; requester = token user.
   Body has optional `necesitaIt` / `necesitaSsm` booleans (routing flags).
+- `POST /referate/:id/resubmit` — requester-only; correct a **TRIMIS_INAPOI** referat and
+  resubmit it. Same body as create; the chain is re-materialized (value/flag edits can change
+  routing) and restarts at step 1. 403 for non-requester, 409 unless status is `TRIMIS_INAPOI`.
+  The append-only Transition trail is preserved; only ApprovalTask rows are rebuilt.
 - `POST /referate/:id/approve` — body `{ comment? }`; actor = token user.
 - `POST /referate/:id/reject` — body `{ comment (required) }`.
-- `POST /referate/:id/send-back` — body `{ comment (required) }`.
+- `POST /referate/:id/send-back` — body `{ comment (required), sendBackTo? }`. `sendBackTo` is
+  the stepOrder of ANY earlier step to return to (omitted = the previous step); the intermediate
+  approved steps are reset to PENDING so the chain re-walks forward.
 - `GET  /referate/:id/pdf` — the referat as a print-ready A4 PDF (any state; frontend fetches it
   as an authenticated Blob). Template: `referate/referat-document.ts` (self-contained HTML, RO
   labels); conversion: `pdf/pdf.service.ts` (Puppeteer, launched per request).
@@ -143,14 +167,20 @@ token user; **no user ids travel in payloads**.
   the Bearer header to every call and logs out + redirects on 401 (registered in `app.config.ts`).
   `core/auth.guard.ts` allows a route only with a valid session (loads `/auth/me`).
 - **`shell/`** = app shell (top bar with identity + notifications + Deconectare; **no role
-  switcher** — switching roles = logout + login with another demo account). Routes lazy-load each
-  feature (`app.routes.ts`). Feature screens live in `features/`: `login` (Autentificare — real
-  email + password login; demo-account rows fill only the email, the demo password lives ONLY in
-  the README), `inbox` (Inboxul meu), `referat-nou` (Referat nou — IT/SSM flag checkboxes + a live
-  routing preview computed from the active workflow), `detaliu` (Detaliu referat — the approval
-  stepper; PDF fetched as an authenticated Blob, attachments downloaded via `{ url }`), `toate`
-  (Toate referatele), `admin` (**Administrare flux** at `/admin/flux` — edit the active workflow's
-  steps; nav entry shown only when the logged-in user is `DIR_GENERAL`). `shared/` holds reusable
+  switcher** — switching roles = logout + login with another demo account). The bell merges the
+  role inbox with the user's OWN referate sent back to them (so a requester isn't blind);
+  `notifCount` drives the badge. Routes lazy-load each feature (`app.routes.ts`). Feature screens
+  live in `features/`: `login` (Autentificare — real email + password login + a demo-data
+  disclaimer; demo-account rows fill only the email, the demo password lives ONLY in the README),
+  `inbox` (Inboxul meu), `mele` (Referatele mele — the user's submitted referate, where each
+  stands, with a *Corectează* action on sent-back ones), `referat-nou` (Referat nou — IT/SSM flag
+  checkboxes + a live routing preview; also mounted at `referat/:id/corectare` in edit mode to
+  correct-and-resubmit a sent-back referat, calling `resubmit()`; guards double-submit), `detaliu`
+  (Detaliu referat — the approval stepper; action buttons disabled in-flight; PDF fetched as an
+  authenticated Blob, attachments downloaded via `{ url }`; the requester gets a "Corectează și
+  retrimite" affordance when TRIMIS_INAPOI), `toate` (Toate referatele), `admin` (**Administrare
+  flux** at `/admin/flux` — edit the active workflow's steps; nav entry shown only when the logged-in
+  user is `DIR_GENERAL`). `shared/` holds reusable
   presentational components (status badge, stepper, audit timeline, avatar, empty state, icon).
   Icons are inline SVG via `shared/icon.component.ts` (add glyphs to its registry).
 

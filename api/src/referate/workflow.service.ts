@@ -9,7 +9,7 @@ import { ReferatStatus, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { applies, Condition, RoutingContext } from '../config/condition';
 import { CreateReferatDto } from './dto/create-referat.dto';
-import { ApproveDto, CommentRequiredDto } from './dto/action.dto';
+import { ApproveDto, CommentRequiredDto, SendBackDto } from './dto/action.dto';
 import { REFERAT_INCLUDE } from './referate.service';
 
 /** A task is "open" (re-activatable) when PENDING or after a SENT_BACK. */
@@ -38,36 +38,13 @@ export class WorkflowService {
       );
     }
 
-    const workflow = await this.prisma.workflow.findFirst({
-      where: { isActive: true },
-      include: { steps: { orderBy: { order: 'asc' } } },
-    });
-    if (!workflow || workflow.steps.length === 0) {
-      throw new BadRequestException(
-        'Niciun flux de avizare activ nu este configurat.',
-      );
-    }
-
     // Evaluate each step's condition against this referat; keep only those that apply.
     const ctx: RoutingContext = {
       valoareLei: dto.valoareLei,
       necesitaIt: dto.necesitaIt ?? false,
       necesitaSsm: dto.necesitaSsm ?? false,
     };
-    const chain = workflow.steps.filter((step) =>
-      applies(step.appliesWhen as Condition, ctx),
-    );
-    if (chain.length === 0) {
-      throw new BadRequestException(
-        'Fluxul activ nu produce niciun pas pentru acest referat.',
-      );
-    }
-
-    // Resolve one effective approver per role up front (a single query).
-    const approvers = await this.prisma.user.findMany({
-      where: { role: { in: chain.map((s) => s.role) } },
-    });
-    const approverByRole = new Map(approvers.map((u) => [u.role, u]));
+    const { workflowId, chain, approverByRole } = await this.resolveChain(ctx);
 
     return this.prisma.$transaction(async (tx) => {
       const referat = await tx.referat.create({
@@ -80,7 +57,7 @@ export class WorkflowService {
           necesitaIt: ctx.necesitaIt,
           necesitaSsm: ctx.necesitaSsm,
           requesterId: requester.id,
-          workflowId: workflow.id,
+          workflowId,
           status: ReferatStatus.IN_ASTEPTARE,
           tasks: {
             // Re-number to a contiguous 1..n stepOrder over the applicable steps.
@@ -111,6 +88,115 @@ export class WorkflowService {
     });
   }
 
+  /**
+   * Correct-and-resubmit a referat that was sent back to its requester
+   * (status TRIMIS_INAPOI). Only the requester may do this. The editable
+   * fields are updated and the approval chain is re-materialized from the
+   * active workflow (value/flag edits can legitimately change the route), so
+   * the flow restarts cleanly at step 1. The append-only Transition trail is
+   * preserved; only the (non-audit) ApprovalTask rows are rebuilt.
+   */
+  async resubmit(id: string, requesterId: string, dto: CreateReferatDto) {
+    const referat = await this.prisma.referat.findUnique({ where: { id } });
+    if (!referat) {
+      throw new NotFoundException(`Referatul ${id} nu există.`);
+    }
+    if (referat.requesterId !== requesterId) {
+      throw new ForbiddenException(
+        'Doar solicitantul poate corecta și retrimite referatul.',
+      );
+    }
+    if (referat.status !== ReferatStatus.TRIMIS_INAPOI) {
+      throw new ConflictException(
+        'Doar un referat trimis înapoi poate fi corectat și retrimis.',
+      );
+    }
+
+    const ctx: RoutingContext = {
+      valoareLei: dto.valoareLei,
+      necesitaIt: dto.necesitaIt ?? false,
+      necesitaSsm: dto.necesitaSsm ?? false,
+    };
+    const { workflowId, chain, approverByRole } = await this.resolveChain(ctx);
+
+    return this.prisma.$transaction(async (tx) => {
+      // Rebuild the chain from scratch (tasks are not the audit trail).
+      await tx.approvalTask.deleteMany({ where: { referatId: id } });
+      await tx.referat.update({
+        where: { id },
+        data: {
+          articol: dto.articol,
+          cantitate: dto.cantitate,
+          justificare: dto.justificare,
+          centruCost: dto.centruCost,
+          valoareLei: dto.valoareLei,
+          necesitaIt: ctx.necesitaIt,
+          necesitaSsm: ctx.necesitaSsm,
+          workflowId,
+          status: ReferatStatus.IN_ASTEPTARE,
+          tasks: {
+            create: chain.map((step, index) => ({
+              stepOrder: index + 1,
+              role: step.role,
+              status: index === 0 ? TaskStatus.WAITING : TaskStatus.PENDING,
+              effectiveApproverId: approverByRole.get(step.role)?.id ?? null,
+            })),
+          },
+        },
+      });
+
+      await tx.transition.create({
+        data: {
+          referatId: id,
+          fromState: ReferatStatus.TRIMIS_INAPOI,
+          toState: ReferatStatus.IN_ASTEPTARE,
+          actorId: requesterId,
+          comment: 'Referat corectat și retrimis spre aprobare.',
+        },
+      });
+
+      return tx.referat.findUniqueOrThrow({
+        where: { id },
+        include: REFERAT_INCLUDE,
+      });
+    });
+  }
+
+  /**
+   * Load the active workflow and materialize the ordered chain for a given
+   * routing context: the applicable steps plus one deterministic effective
+   * approver per role. Shared by create() and resubmit().
+   */
+  private async resolveChain(ctx: RoutingContext) {
+    const workflow = await this.prisma.workflow.findFirst({
+      where: { isActive: true },
+      include: { steps: { orderBy: { order: 'asc' } } },
+    });
+    if (!workflow || workflow.steps.length === 0) {
+      throw new BadRequestException(
+        'Niciun flux de avizare activ nu este configurat.',
+      );
+    }
+
+    const chain = workflow.steps.filter((step) =>
+      applies(step.appliesWhen as Condition, ctx),
+    );
+    if (chain.length === 0) {
+      throw new BadRequestException(
+        'Fluxul activ nu produce niciun pas pentru acest referat.',
+      );
+    }
+
+    // Deterministic effective approver per role (stable order, not query luck).
+    const approvers = await this.prisma.user.findMany({
+      where: { role: { in: chain.map((s) => s.role) } },
+      orderBy: { name: 'asc' },
+    });
+    const approverByRole = new Map(approvers.map((u) => [u.role, u]));
+
+    return { workflowId: workflow.id, chain, approverByRole };
+  }
+
   async approve(id: string, actingUserId: string, dto: ApproveDto) {
     return this.act(id, actingUserId, dto.comment, 'APPROVE');
   }
@@ -119,8 +205,8 @@ export class WorkflowService {
     return this.act(id, actingUserId, dto.comment, 'REJECT');
   }
 
-  async sendBack(id: string, actingUserId: string, dto: CommentRequiredDto) {
-    return this.act(id, actingUserId, dto.comment, 'SEND_BACK');
+  async sendBack(id: string, actingUserId: string, dto: SendBackDto) {
+    return this.act(id, actingUserId, dto.comment, 'SEND_BACK', dto.sendBackTo);
   }
 
   /**
@@ -133,6 +219,7 @@ export class WorkflowService {
     actingUserId: string,
     comment: string | undefined,
     action: 'APPROVE' | 'REJECT' | 'SEND_BACK',
+    sendBackTo?: number,
   ) {
     const referat = await this.prisma.referat.findUnique({
       where: { id },
@@ -160,11 +247,29 @@ export class WorkflowService {
       );
     }
 
-    // Faked auth, but the acting role must match the active step's role.
+    // Real auth upstream; the acting role must still match the active step's role.
     if (actingUser.role !== current.role) {
       throw new ForbiddenException(
         `Pasul activ necesită rolul ${current.role}, dar utilizatorul are rolul ${actingUser.role}.`,
       );
+    }
+
+    // SEND_BACK: resolve + validate the target step before the transaction.
+    // Explicit sendBackTo may point at ANY earlier step; default = previous.
+    let sendBackDest: { id: string; stepOrder: number } | undefined;
+    if (action === 'SEND_BACK') {
+      sendBackDest =
+        sendBackTo != null
+          ? referat.tasks.find((t) => t.stepOrder === sendBackTo)
+          : this.previousTask(referat.tasks, current.stepOrder);
+      if (
+        sendBackTo != null &&
+        (!sendBackDest || sendBackDest.stepOrder >= current.stepOrder)
+      ) {
+        throw new BadRequestException(
+          'Pasul ales nu este un pas anterior valid.',
+        );
+      }
     }
 
     const fromState = referat.status;
@@ -175,8 +280,11 @@ export class WorkflowService {
       let note: string;
 
       if (action === 'APPROVE') {
-        await tx.approvalTask.update({
-          where: { id: current.id },
+        // Guard against a concurrent action on the same step: only transition
+        // the task while it is still WAITING. If another request won the race,
+        // count is 0 → abort the whole transaction (no duplicate transition).
+        const claimed = await tx.approvalTask.updateMany({
+          where: { id: current.id, status: TaskStatus.WAITING },
           data: {
             status: TaskStatus.APPROVED,
             actedById: actingUser.id,
@@ -184,6 +292,11 @@ export class WorkflowService {
             comment: comment ?? null,
           },
         });
+        if (claimed.count !== 1) {
+          throw new ConflictException(
+            'Pasul a fost deja procesat între timp — reîncarcă referatul.',
+          );
+        }
 
         const next = this.nextOpenTask(referat.tasks, current.stepOrder);
         if (next) {
@@ -197,8 +310,8 @@ export class WorkflowService {
         }
         note = comment ?? `Aprobat de ${current.role}.`;
       } else if (action === 'REJECT') {
-        await tx.approvalTask.update({
-          where: { id: current.id },
+        const claimed = await tx.approvalTask.updateMany({
+          where: { id: current.id, status: TaskStatus.WAITING },
           data: {
             status: TaskStatus.REJECTED,
             actedById: actingUser.id,
@@ -206,12 +319,17 @@ export class WorkflowService {
             comment,
           },
         });
+        if (claimed.count !== 1) {
+          throw new ConflictException(
+            'Pasul a fost deja procesat între timp — reîncarcă referatul.',
+          );
+        }
         toState = ReferatStatus.RESPINS;
         note = comment as string;
       } else {
-        // SEND_BACK — re-activate the immediately previous step.
-        await tx.approvalTask.update({
-          where: { id: current.id },
+        // SEND_BACK — re-activate the chosen earlier step (default: previous).
+        const claimed = await tx.approvalTask.updateMany({
+          where: { id: current.id, status: TaskStatus.WAITING },
           data: {
             status: TaskStatus.SENT_BACK,
             actedById: actingUser.id,
@@ -219,12 +337,35 @@ export class WorkflowService {
             comment,
           },
         });
+        if (claimed.count !== 1) {
+          throw new ConflictException(
+            'Pasul a fost deja procesat între timp — reîncarcă referatul.',
+          );
+        }
 
-        const previous = this.previousTask(referat.tasks, current.stepOrder);
-        if (previous) {
-          // Reset the previous step so it genuinely awaits action again.
+        if (sendBackDest) {
+          // Steps between the destination and the current one were approved on
+          // the abandoned pass — reset them so the chain re-walks forward.
+          await tx.approvalTask.updateMany({
+            where: {
+              referatId: referat.id,
+              stepOrder: {
+                gt: sendBackDest.stepOrder,
+                lt: current.stepOrder,
+              },
+              status: TaskStatus.APPROVED,
+            },
+            data: {
+              status: TaskStatus.PENDING,
+              actedById: null,
+              actedAt: null,
+              comment: null,
+            },
+          });
+
+          // Reset the destination so it genuinely awaits action again.
           await tx.approvalTask.update({
-            where: { id: previous.id },
+            where: { id: sendBackDest.id },
             data: {
               status: TaskStatus.WAITING,
               actedById: null,
@@ -233,7 +374,7 @@ export class WorkflowService {
             },
           });
         }
-        // If there is no previous step, the referat returns to the requester.
+        // If there is no earlier step, the referat returns to the requester.
         toState = ReferatStatus.TRIMIS_INAPOI;
         note = comment as string;
       }

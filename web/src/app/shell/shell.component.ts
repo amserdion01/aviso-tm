@@ -1,19 +1,28 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { MatMenuModule } from '@angular/material/menu';
-import { filter } from 'rxjs';
+import { filter, forkJoin } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { SessionService } from '../core/session.service';
-import { Referat, ROLE_LABEL } from '../core/models';
+import { ROLE_LABEL } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 import { AvatarComponent } from '../shared/avatar.component';
+
+/** A bell notification: an item that needs the user's attention. */
+interface Notification {
+  id: string;
+  title: string;
+  sub: string;
+}
 
 /**
  * App shell: sticky top bar (brand + notifications + logout) + left nav +
@@ -39,6 +48,7 @@ export class ShellComponent implements OnInit {
   private readonly session = inject(SessionService);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly orgName = 'Timișoara';
 
@@ -53,8 +63,10 @@ export class ShellComponent implements OnInit {
     return user ? ROLE_LABEL[user.role] : '';
   });
 
-  /** Referate awaiting the current user — shown in the notifications menu. */
-  readonly notifications = signal<Referat[]>([]);
+  /** Items needing the user's attention — shown in the notifications menu. */
+  readonly notifications = signal<Notification[]>([]);
+  /** Bell badge count (approvals to make + own referate sent back to correct). */
+  readonly notifCount = computed(() => this.notifications().length);
 
   /** Mobile off-canvas drawer state (the sidebar itself on ≤720px). */
   readonly drawerOpen = signal(false);
@@ -62,11 +74,14 @@ export class ShellComponent implements OnInit {
   ngOnInit(): void {
     // Initial fill + keep fresh after navigation (e.g. returning from detail);
     // navigating also closes the mobile drawer.
-    this.session.refreshInboxCount();
+    this.refreshNotifications();
     this.router.events
-      .pipe(filter((e) => e instanceof NavigationEnd))
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe(() => {
-        this.session.refreshInboxCount();
+        this.refreshNotifications();
         this.drawerOpen.set(false);
       });
   }
@@ -79,12 +94,44 @@ export class ShellComponent implements OnInit {
     this.drawerOpen.set(false);
   }
 
-  /** Load the current user's pending referate when the bell menu opens. */
-  loadNotifications(): void {
-    this.api.getInbox().subscribe({
-      next: (list) => this.notifications.set(list),
-      error: () => this.notifications.set([]),
+  /**
+   * Build the notification list: referate awaiting the user's approval PLUS the
+   * user's OWN referate that were sent back to them (so a requester learns their
+   * request needs correcting instead of being blind to it). Also keeps the
+   * shared inbox badge in sync.
+   */
+  refreshNotifications(): void {
+    forkJoin({
+      inbox: this.api.getInbox(),
+      mine: this.api.getMine(),
+    }).subscribe({
+      next: ({ inbox, mine }) => {
+        this.session.inboxCount.set(inbox.length);
+        const items: Notification[] = inbox.map((r) => ({
+          id: r.id,
+          title: r.articol,
+          sub: `${r.requester?.name ?? ''} · așteaptă decizia ta`,
+        }));
+        for (const r of mine) {
+          if (r.status === 'TRIMIS_INAPOI' && !items.some((i) => i.id === r.id)) {
+            items.push({
+              id: r.id,
+              title: r.articol,
+              sub: 'Trimis înapoi ție · corectează și retrimite',
+            });
+          }
+        }
+        this.notifications.set(items);
+      },
+      error: () => {
+        this.notifications.set([]);
+      },
     });
+  }
+
+  /** Kept for the bell's (menuOpened) trigger — refresh on open. */
+  loadNotifications(): void {
+    this.refreshNotifications();
   }
 
   openReferat(id: string): void {

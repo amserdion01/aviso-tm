@@ -19,7 +19,20 @@ export const routes: Routes = [
           import('./features/inbox/inbox.component').then((m) => m.InboxComponent),
       },
       {
+        path: 'mele',
+        loadComponent: () =>
+          import('./features/mele/mele.component').then((m) => m.MeleComponent),
+      },
+      {
         path: 'referat-nou',
+        loadComponent: () =>
+          import('./features/referat-nou/referat-nou.component').then(
+            (m) => m.ReferatNouComponent,
+          ),
+      },
+      {
+        // Correct-and-resubmit a sent-back referat (reuses the referat form).
+        path: 'referat/:id/corectare',
         loadComponent: () =>
           import('./features/referat-nou/referat-nou.component').then(
             (m) => m.ReferatNouComponent,

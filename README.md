@@ -36,6 +36,8 @@ pnpm db:up
 
 # 3. Configure the API env
 cp api/.env.example api/.env        # defaults already match docker-compose.yml
+#    Then set a JWT secret (the API refuses to boot without one):
+#    echo "JWT_SECRET=$(openssl rand -hex 32)" >> api/.env
 
 # 4. Apply the schema (creates tables + Prisma client)
 pnpm api:migrate                    # = prisma migrate dev
@@ -56,6 +58,7 @@ Convenience scripts (defined in the root `package.json`):
 | `pnpm api:seed` | reset + seed the demo data |
 | `pnpm api:start` | `nest start --watch` |
 | `pnpm api:build` | production build to `api/dist` |
+| `pnpm --filter api test` | Jest unit tests (the routing-condition engine) |
 
 ### Configuration (`api/.env`)
 
@@ -71,6 +74,11 @@ Convenience scripts (defined in the root `package.json`):
 | `R2_BUCKET` | — | R2 bucket name for attachments |
 
 ## Autentificare (conturi demo)
+
+> **Demonstrație publică.** Aceasta este o aplicație demo cu date fictive. Conturile și parola
+> de mai jos sunt publice (documentate intenționat) — oricine se poate autentifica pentru a
+> încerca orice rol. Nu introduceți informații reale. Login-ul e protejat de rate-limiting
+> (10 încercări/min per IP) și de headere de securitate (helmet), dar rămâne deschis prin design.
 
 Login real: `POST /auth/login` cu email + parolă → JWT (expiră în 8h). Nu există înregistrare —
 utilizatorii vin din seed. **Parola demo, comună tuturor conturilor: `ApaTM2026!`**
@@ -98,16 +106,19 @@ from the token — no user ids travel in payloads.
 
 | Method | Path | Body | Description |
 | --- | --- | --- | --- |
-| `POST` | `/auth/login` | `{ email, parola }` | **public** — returns `{ token, user }` (JWT, 8h) |
+| `GET` | `/health` | — | **public** — liveness/readiness probe (`SELECT 1`); `503` if the DB is unreachable |
+| `POST` | `/auth/login` | `{ email, parola }` | **public** — returns `{ token, user }` (JWT, 8h); rate-limited (10/min per IP) |
 | `GET` | `/auth/me` | — | the authenticated user's profile |
 | `GET` | `/users` | — | **public** — demo roster (login screen); no password hashes |
 | `GET` | `/referate` | — | inbox: referate with a `WAITING` task for **your** role |
 | `GET` | `/referate/all` | — | overview list with statuses |
+| `GET` | `/referate/mine` | — | the referate **you** submitted (drives "Referatele mele") |
 | `GET` | `/referate/:id` | — | full detail + tasks + transitions (istoric) |
 | `POST` | `/referate` | `{ articol, cantitate, justificare, centruCost, valoareLei, necesitaIt?, necesitaSsm? }` | create + materialize chain; requester = you |
+| `POST` | `/referate/:id/resubmit` | same body as create | requester-only; correct a **sent-back** referat and resubmit (chain re-materialized from step 1) |
 | `POST` | `/referate/:id/approve` | `{ comment? }` | approve current step (your role must match it) |
 | `POST` | `/referate/:id/reject` | `{ comment }` | reject (comment required) → `RESPINS` |
-| `POST` | `/referate/:id/send-back` | `{ comment }` | send back (comment required) → re-activates previous step |
+| `POST` | `/referate/:id/send-back` | `{ comment, sendBackTo? }` | send back (comment required) to any earlier step (`sendBackTo` = its stepOrder; omitted = previous). Steps between the target and the current one are reset and re-walked |
 | `GET` | `/referate/:id/pdf` | — | print-ready A4 PDF of the referat (any state; Puppeteer) |
 | `POST` | `/referate/:id/atasamente` | multipart: `files` (max 5 × 10 MB) | attach files (stored in R2); allowed while `IN_ASTEPTARE` / `TRIMIS_INAPOI` |
 | `GET` | `/referate/:id/atasamente/:attId/download` | — | `{ url }` — presigned R2 link (15 min) |
@@ -153,11 +164,13 @@ The app consumes the API via a single `ApiService`; the base URL comes from
 enables CORS for `http://localhost:4200`.
 
 Screens (all Romanian): **Autentificare** (role-based login with demo accounts), **Inboxul meu**
-(role inbox with quick Aprobă / Trimite înapoi / Respinge), **Referat nou** (validated form with
-IT/SSM flag checkboxes + a live routing preview computed from the active workflow), **Detaliu
-referat** (data + approval stepper + read-only istoric + action panel), **Toate referatele**
-(overview with status chips), and **Administrare flux** (edit the active workflow's steps — role,
-label, and applicability condition per step; shown only for the Director General). The identity
+(role inbox with quick Aprobă / Trimite înapoi / Respinge), **Referatele mele** (the referate you
+submitted + where each stands, with a *Corectează* action on ones sent back to you), **Referat
+nou** (validated form with IT/SSM flag checkboxes + a live routing preview computed from the active
+workflow — also reused to correct-and-resubmit a sent-back referat), **Detaliu referat** (data +
+approval stepper + read-only istoric + action panel), **Toate referatele** (overview with status
+chips), and **Administrare flux** (edit the active workflow's steps — role, label, and
+applicability condition per step; shown only for the Director General). The identity
 comes exclusively from the JWT login — switching roles means logging out (Deconectare) and back in
 with another demo account.
 
@@ -178,6 +191,9 @@ Demo login: click a demo account row to fill its **email**, then type the demo p
 3. Set env vars: `DATABASE_URL`, `PORT` (the platform usually injects it),
    `CORS_ORIGIN` = the deployed web origin, a **strong `JWT_SECRET`** (`openssl rand -hex 32`),
    and the four `R2_*` vars for attachment storage.
+   - **Health check path:** point the platform's health check at **`/health`** (public,
+     returns `503` if it can't reach Postgres).
+   - Run `pnpm --filter api test` in CI before deploy (see `.github/workflows/ci.yml`).
 4. PDF generation uses **Puppeteer** (bundled Chromium): make sure the build does NOT set
    `PUPPETEER_SKIP_DOWNLOAD`, and the image has Chromium's system deps (Railway/Render's
    default Node images generally work; otherwise add the puppeteer apt packages).

@@ -32,26 +32,24 @@
       (menuOpened)="loadNotifications()"
     >
       <app-icon name="bell" [size]="18" />
-      @if (inboxCount() > 0) {
-        <span class="notif-dot">{{ inboxCount() }}</span>
+      @if (notifCount() > 0) {
+        <span class="notif-dot">{{ notifCount() }}</span>
       }
     </button>
 
     <mat-menu #notifMenu="matMenu" class="notif-menu" xPosition="before">
       <div class="notif-head">
         Notificări
-        @if (inboxCount() > 0) {
-          <span class="notif-head__count">{{ inboxCount() }}</span>
+        @if (notifCount() > 0) {
+          <span class="notif-head__count">{{ notifCount() }}</span>
         }
       </div>
       @if (notifications().length > 0) {
         @for (n of notifications(); track n.id) {
           <button mat-menu-item type="button" (click)="openReferat(n.id)">
             <span class="notif-item">
-              <span class="notif-item__title">{{ n.articol }}</span>
-              <span class="notif-item__sub">
-                {{ n.requester?.name }} · așteaptă decizia ta
-              </span>
+              <span class="notif-item__title">{{ n.title }}</span>
+              <span class="notif-item__sub">{{ n.sub }}</span>
             </span>
           </button>
         }
@@ -88,6 +86,10 @@
         @if (inboxCount() > 0) {
           <span class="count">{{ inboxCount() }}</span>
         }
+      </a>
+      <a class="nav-item" routerLink="/mele" routerLinkActive="active">
+        <app-icon name="history" [size]="18" />
+        <span class="nav-text">Referatele mele</span>
       </a>
       <a class="nav-item" routerLink="/referat-nou" routerLinkActive="active">
         <app-icon name="file-plus" [size]="18" />

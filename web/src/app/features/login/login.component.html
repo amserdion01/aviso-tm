@@ -12,6 +12,14 @@
         Intră în cont pentru a gestiona referatele de necesitate.
       </p>
 
+      <div class="demo-banner" role="note">
+        <app-icon name="lock" [size]="15" />
+        <span>
+          Aplicație <strong>demonstrativă</strong>, cu date fictive. Conturile și
+          parola sunt publice — nu introdu informații reale.
+        </span>
+      </div>
+
       @if (loginError()) {
         <div class="login-error-banner" role="alert">{{ loginError() }}</div>
       }

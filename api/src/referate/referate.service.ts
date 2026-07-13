@@ -40,6 +40,15 @@ export class ReferateService {
     });
   }
 
+  /** The referate the given user submitted (their own requests). */
+  mine(userId: string) {
+    return this.prisma.referat.findMany({
+      where: { requesterId: userId },
+      include: REFERAT_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   /** Full detail: data + tasks + transitions (istoric). */
   async findOne(id: string) {
     const referat = await this.prisma.referat.findUnique({

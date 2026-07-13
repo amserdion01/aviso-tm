@@ -12,6 +12,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -53,6 +54,7 @@ type PreselectAction = 'back' | 'reject' | null;
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatButtonModule,
     LeiPipe,
     DataRoPipe,
@@ -250,6 +252,55 @@ export class DetaliuComponent {
     return !!w && w.role === this.session.currentUser()?.role;
   });
 
+  /** True while an approve/reject/send-back is in flight — blocks double-submit. */
+  readonly acting = signal(false);
+
+  /** The requester can correct + resubmit their own sent-back referat. */
+  readonly canResubmit = computed(() => {
+    const r = this.referat();
+    return (
+      !!r &&
+      r.status === 'TRIMIS_INAPOI' &&
+      r.requester?.id === this.session.currentUser()?.id
+    );
+  });
+
+  goCorrect(): void {
+    const r = this.referat();
+    if (r) this.router.navigate(['/referat', r.id, 'corectare']);
+  }
+
+  // ---- Send-back target (any earlier step) -------------------------------------
+
+  /** Earlier steps the referat can be returned to, in chain order. */
+  readonly sendBackTargets = computed(() => {
+    const r = this.referat();
+    const w = this.waitingTask();
+    if (!r || !w) return [];
+    return r.tasks
+      .filter((t) => t.stepOrder < w.stepOrder)
+      .sort((a, b) => a.stepOrder - b.stepOrder)
+      .map((t) => ({
+        stepOrder: t.stepOrder,
+        label:
+          ROLE_SHORT[t.role] +
+          (t.effectiveApprover ? ` — ${t.effectiveApprover.name}` : ''),
+      }));
+  });
+
+  /** Explicit choice; null = the default (previous step). */
+  readonly sendBackChoice = signal<number | null>(null);
+
+  /** Value shown in the select: the choice, or the previous step. */
+  readonly sendBackValue = computed(() => {
+    const targets = this.sendBackTargets();
+    const choice = this.sendBackChoice();
+    if (choice != null && targets.some((t) => t.stepOrder === choice)) {
+      return choice;
+    }
+    return targets.length ? targets[targets.length - 1].stepOrder : null;
+  });
+
   /** Tinted note copy for the preselected action (only while it can act). */
   readonly preselectNote = computed(() => {
     if (!this.canAct()) return '';
@@ -392,48 +443,73 @@ export class DetaliuComponent {
 
   approve(): void {
     const r = this.referat();
-    if (!r) return;
+    if (!r || this.acting()) return;
     const comment = this.commentCtrl.value.trim();
+    this.acting.set(true);
     this.api.approve(r.id, comment || undefined).subscribe({
       next: () => {
+        this.acting.set(false);
         this.resetComment();
         this.reload();
         this.session.refreshInboxCount();
         this.toast('Referat avizat.', 'tone-success');
       },
-      error: () => this.toast('Acțiunea nu a putut fi finalizată.', 'tone-error'),
+      error: (err) => this.actionError(err),
     });
   }
 
   reject(): void {
     const r = this.referat();
-    if (!r || !this.requireComment()) return;
+    if (!r || this.acting() || !this.requireComment()) return;
+    this.acting.set(true);
     this.api.reject(r.id, this.commentCtrl.value.trim()).subscribe({
       next: () => {
+        this.acting.set(false);
         this.resetComment();
         this.reload();
         this.session.refreshInboxCount();
         this.toast('Referat respins.', 'tone-error');
       },
-      error: () => this.toast('Acțiunea nu a putut fi finalizată.', 'tone-error'),
+      error: (err) => this.actionError(err),
     });
   }
 
   sendBack(): void {
     const r = this.referat();
-    if (!r || !this.requireComment()) return;
-    this.api.sendBack(r.id, this.commentCtrl.value.trim()).subscribe({
+    if (!r || this.acting() || !this.requireComment()) return;
+    const target = this.sendBackValue() ?? undefined;
+    // Was the referat returned to an explicitly chosen (non-previous) step?
+    const targets = this.sendBackTargets();
+    const isPrevious =
+      target == null ||
+      (targets.length > 0 && target === targets[targets.length - 1].stepOrder);
+    this.acting.set(true);
+    this.api.sendBack(r.id, this.commentCtrl.value.trim(), target).subscribe({
       next: () => {
+        this.acting.set(false);
         this.resetComment();
         this.reload();
         this.session.refreshInboxCount();
         this.toast(
-          'Trimis înapoi — referatul s-a întors la pasul anterior.',
+          isPrevious
+            ? 'Trimis înapoi — referatul s-a întors la pasul anterior.'
+            : 'Trimis înapoi — referatul s-a întors la pasul ales.',
           'tone-warning',
         );
       },
-      error: () => this.toast('Acțiunea nu a putut fi finalizată.', 'tone-error'),
+      error: (err) => this.actionError(err),
     });
+  }
+
+  /** Surface the server's reason (403/409 carry useful Romanian messages). */
+  private actionError(err: unknown): void {
+    this.acting.set(false);
+    const message =
+      (err as { error?: { message?: string } })?.error?.message ??
+      'Acțiunea nu a putut fi finalizată.';
+    this.toast(message, 'tone-error');
+    // The step may have moved under us (race / stale view) — refresh.
+    this.reload();
   }
 
   private toast(

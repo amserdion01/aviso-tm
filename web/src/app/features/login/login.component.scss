@@ -76,6 +76,31 @@
   line-height: 1.4;
 }
 
+.demo-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 13px;
+  background: var(--accent-weak, var(--surface-sunken));
+  border: var(--border-w) solid var(--accent-weak-border, var(--border-default));
+  border-radius: var(--radius-lg);
+  margin: 0 0 22px;
+  font-size: var(--text-caption-size);
+  color: var(--text-muted);
+  line-height: 1.45;
+
+  app-icon {
+    flex: none;
+    margin-top: 1px;
+    color: var(--text-subtle);
+  }
+
+  strong {
+    color: var(--text-body);
+    font-weight: var(--weight-semibold);
+  }
+}
+
 .login-form {
   display: flex;
   flex-direction: column;

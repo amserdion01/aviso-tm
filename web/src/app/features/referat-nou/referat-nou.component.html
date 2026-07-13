@@ -1,8 +1,13 @@
 <div class="rn-page">
-  <h1 class="page-title">Referat nou</h1>
+  <h1 class="page-title">{{ isEdit() ? 'Corectează referatul' : 'Referat nou' }}</h1>
   <p class="page-sub">
-    Completează detaliile achiziției. Sistemul alege automat traseul de avizare
-    în funcție de valoare.
+    @if (isEdit()) {
+      Referatul a fost trimis înapoi. Corectează detaliile și retrimite-l — va
+      relua traseul de avizare de la început.
+    } @else {
+      Completează detaliile achiziției. Sistemul alege automat traseul de avizare
+      în funcție de valoare.
+    }
   </p>
 
   <form class="av-card av-card-pad rn-form" [formGroup]="form" (ngSubmit)="submit()">
@@ -176,9 +181,21 @@
   </form>
 
   <div class="rn-actions">
-    <button type="button" mat-flat-button color="primary" (click)="submit()">
+    <button
+      type="button"
+      mat-flat-button
+      color="primary"
+      [disabled]="submitting()"
+      (click)="submit()"
+    >
       <app-icon name="send" [size]="16" />
-      Trimite referatul
+      {{
+        submitting()
+          ? 'Se trimite…'
+          : isEdit()
+            ? 'Retrimite referatul'
+            : 'Trimite referatul'
+      }}
     </button>
   </div>
 </div>

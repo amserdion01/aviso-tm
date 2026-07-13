@@ -2,38 +2,43 @@
   display: block;
 }
 
-.toate {
+.mele {
   max-width: 1180px;
   margin: 0 auto;
 }
 
-/* ---- Status legend ---- */
-.toate__legend {
+.mele__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: var(--space-6) 0;
 }
 
-.toate__legend .eyebrow {
-  margin-right: var(--space-2);
+.mele__new {
+  flex: none;
 }
 
-/* ---- Card wrapping the table (padding removed so the table sits flush) ---- */
-.toate__card {
+.mele__loading,
+.mele__error {
+  margin-top: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--text-sm-size);
+}
+
+/* ---- Card wrapping the table ---- */
+.mele__card {
   padding: 0;
   overflow: hidden;
+  margin-top: var(--space-6);
 }
 
-/* ---- Table (mirrors the inbox table) ---- */
-.toate__table {
+.mele__table {
   width: 100%;
   background: transparent;
 }
 
-// Header cells: eyebrow style.
-.toate__table th.mat-mdc-header-cell {
+.mele__table th.mat-mdc-header-cell {
   font-family: var(--font-sans);
   font-size: var(--text-overline-size);
   line-height: var(--text-overline-lh);
@@ -46,35 +51,32 @@
   background: var(--surface-card);
 }
 
-// Body cells.
-.toate__table td.mat-mdc-cell {
+.mele__table td.mat-mdc-cell {
   font-size: var(--text-body-size);
   color: var(--text-body);
   padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--border-subtle);
 }
 
-// Right-aligned columns (Valoare).
-.toate__table th.mat-mdc-header-cell.num,
-.toate__table td.mat-mdc-cell.num {
+.mele__table th.mat-mdc-header-cell.num,
+.mele__table td.mat-mdc-cell.num {
   text-align: right;
 }
 
-// Last row: no trailing divider.
-.toate__table tr.toate__row:last-of-type td.mat-mdc-cell {
+.mele__table tr.mele__row:last-of-type td.mat-mdc-cell {
   border-bottom: none;
 }
 
-.toate__row {
+.mele__row {
   cursor: pointer;
   transition: background-color 0.12s ease;
 }
 
-.toate__row:hover {
+.mele__row:hover {
   background: var(--surface-hover);
 }
 
-/* ---- Cell content (matches inbox) ---- */
+/* ---- Cell content ---- */
 .cell-ref__code {
   font-size: var(--text-sm-size);
   font-weight: var(--weight-semibold);
@@ -106,8 +108,26 @@
   white-space: nowrap;
 }
 
-/* ---- Mobile cards (≤720px, driven by ViewportService.isMobile) ---- */
-.toate__cards {
+.cell-step {
+  font-size: var(--text-sm-size);
+  color: var(--text-muted);
+}
+
+.cell-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cell-correct,
+.ref-card__correct {
+  --mdc-outlined-button-container-height: 32px;
+  flex: none;
+}
+
+/* ---- Mobile cards ---- */
+.mele__cards {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -149,4 +169,5 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }

@@ -12,7 +12,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -72,6 +72,7 @@ export class ReferatNouComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly snack = inject(MatSnackBar);
 
   readonly centruOptions = CENTRU_OPTIONS;
@@ -81,6 +82,13 @@ export class ReferatNouComponent {
 
   /** Files picked for upload (sent right after the referat is created). */
   readonly selectedFiles = signal<File[]>([]);
+
+  /** Set when correcting a sent-back referat (resubmit mode), else null. */
+  readonly editId = signal<string | null>(null);
+  readonly isEdit = computed(() => this.editId() !== null);
+
+  /** True while the create/resubmit request is in flight — blocks double-submit. */
+  readonly submitting = signal(false);
 
   readonly form = this.fb.group<ReferatForm>({
     articol: this.fb.control('', {
@@ -133,9 +141,36 @@ export class ReferatNouComponent {
 
   constructor() {
     this.api.getActiveWorkflow().subscribe((wf) => this.workflow.set(wf));
+
+    // Correction mode: /referat/:id/corectare pre-fills the form from the
+    // sent-back referat so the requester can fix it and resubmit.
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.editId.set(id);
+      this.api.getOne(id).subscribe({
+        next: (r) =>
+          this.form.patchValue({
+            articol: r.articol,
+            cantitate: r.cantitate,
+            centruCost: r.centruCost,
+            justificare: r.justificare,
+            valoareLei: r.valoareLei,
+            necesitaIt: r.necesitaIt,
+            necesitaSsm: r.necesitaSsm,
+          }),
+        error: () => {
+          this.snack.open('Referatul nu a putut fi încărcat.', undefined, {
+            duration: 4000,
+            panelClass: ['aviso-toast', 'tone-error'],
+          });
+          this.router.navigate(['/mele']);
+        },
+      });
+    }
   }
 
   submit(): void {
+    if (this.submitting()) return; // guard against double-submit
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -152,30 +187,49 @@ export class ReferatNouComponent {
       necesitaSsm: raw.necesitaSsm,
     };
 
-    this.api.create(payload).subscribe((created) => {
-      const files = this.selectedFiles();
-      if (files.length === 0) {
-        this.afterCreate(created.id);
-        return;
-      }
-      // The referat exists; attach the files, then navigate either way.
-      this.api.uploadAttachments(created.id, files).subscribe({
-        next: () => this.afterCreate(created.id),
-        error: () => {
-          this.snack.open(
-            'Referatul a fost creat, dar fișierele nu au putut fi încărcate.',
-            undefined,
-            { duration: 5000, panelClass: ['aviso-toast', 'tone-warning'] },
-          );
-          this.router.navigate(['/referat', created.id]);
-        },
-      });
+    this.submitting.set(true);
+    const editId = this.editId();
+    const request$ = editId
+      ? this.api.resubmit(editId, payload)
+      : this.api.create(payload);
+
+    request$.subscribe({
+      next: (saved) => {
+        const files = this.selectedFiles();
+        if (files.length === 0) {
+          this.afterSave(saved.id);
+          return;
+        }
+        // The referat exists; attach the files, then navigate either way.
+        this.api.uploadAttachments(saved.id, files).subscribe({
+          next: () => this.afterSave(saved.id),
+          error: () => {
+            this.submitting.set(false);
+            this.snack.open(
+              'Referatul a fost salvat, dar fișierele nu au putut fi încărcate.',
+              undefined,
+              { duration: 5000, panelClass: ['aviso-toast', 'tone-warning'] },
+            );
+            this.router.navigate(['/referat', saved.id]);
+          },
+        });
+      },
+      error: (err) => {
+        this.submitting.set(false);
+        this.snack.open(
+          err?.error?.message ?? 'Referatul nu a putut fi trimis. Reîncearcă.',
+          undefined,
+          { duration: 5000, panelClass: ['aviso-toast', 'tone-error'] },
+        );
+      },
     });
   }
 
-  private afterCreate(id: string): void {
+  private afterSave(id: string): void {
     this.snack.open(
-      'Referat trimis — a intrat pe traseul de avizare.',
+      this.isEdit()
+        ? 'Referat corectat și retrimis pe traseul de avizare.'
+        : 'Referat trimis — a intrat pe traseul de avizare.',
       undefined,
       { duration: 4000, panelClass: ['aviso-toast', 'tone-success'] },
     );

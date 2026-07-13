@@ -32,8 +32,20 @@ export type Condition =
 /** Evaluate a step's condition against the referat context. */
 export function applies(condition: Condition, ctx: RoutingContext): boolean {
   if (condition == null) return true;
-  if ('all' in condition) return condition.all.every((c) => applies(c, ctx));
-  if ('any' in condition) return condition.any.some((c) => applies(c, ctx));
+  // Defensive backstop: a malformed condition (should be rejected at the API
+  // boundary — see isCondition) must never crash referat creation. Treat
+  // anything we can't understand as "always applies".
+  if (typeof condition !== 'object' || Array.isArray(condition)) return true;
+  if ('all' in condition) {
+    return Array.isArray(condition.all)
+      ? condition.all.every((c) => applies(c, ctx))
+      : true;
+  }
+  if ('any' in condition) {
+    return Array.isArray(condition.any)
+      ? condition.any.some((c) => applies(c, ctx))
+      : true;
+  }
 
   switch (condition.field) {
     case 'necesitaIt':
@@ -44,7 +56,40 @@ export function applies(condition: Condition, ctx: RoutingContext): boolean {
       const v = ctx.valoareLei;
       if (condition.op === 'gte') return v >= condition.value;
       if (condition.op === 'gt') return v > condition.value;
-      return v < condition.value;
+      if (condition.op === 'lt') return v < condition.value;
+      return true;
     }
+    default:
+      return true;
+  }
+}
+
+/**
+ * Structural validator for a persisted condition. Used at the API boundary
+ * (PUT /workflows/:id/steps) so a malformed `appliesWhen` is a 400 up front
+ * rather than a 500 on every later POST /referate.
+ */
+export function isCondition(value: unknown): value is Condition {
+  if (value == null) return true;
+  if (typeof value !== 'object' || Array.isArray(value)) return false;
+  const obj = value as Record<string, unknown>;
+
+  if ('all' in obj || 'any' in obj) {
+    const branch = 'all' in obj ? obj.all : obj.any;
+    return Array.isArray(branch) && branch.every((c) => isCondition(c));
+  }
+
+  switch (obj.field) {
+    case 'necesitaIt':
+    case 'necesitaSsm':
+      return typeof obj.eq === 'boolean';
+    case 'valoareLei':
+      return (
+        (obj.op === 'gte' || obj.op === 'gt' || obj.op === 'lt') &&
+        typeof obj.value === 'number' &&
+        Number.isFinite(obj.value)
+      );
+    default:
+      return false;
   }
 }

@@ -50,12 +50,22 @@ export class ApiService {
     return this.http.get<Referat[]>(`${this.base}/referate/all`);
   }
 
+  /** The authenticated user's own referate (their submitted requests). */
+  getMine(): Observable<Referat[]> {
+    return this.http.get<Referat[]>(`${this.base}/referate/mine`);
+  }
+
   getOne(id: string): Observable<Referat> {
     return this.http.get<Referat>(`${this.base}/referate/${id}`);
   }
 
   create(payload: CreateReferatPayload): Observable<Referat> {
     return this.http.post<Referat>(`${this.base}/referate`, payload);
+  }
+
+  /** Correct a sent-back referat and resubmit it (requester only). */
+  resubmit(id: string, payload: CreateReferatPayload): Observable<Referat> {
+    return this.http.post<Referat>(`${this.base}/referate/${id}/resubmit`, payload);
   }
 
   approve(id: string, comment?: string): Observable<Referat> {
@@ -70,9 +80,11 @@ export class ApiService {
     });
   }
 
-  sendBack(id: string, comment: string): Observable<Referat> {
+  /** Send back to an earlier step; omit `sendBackTo` for the previous one. */
+  sendBack(id: string, comment: string, sendBackTo?: number): Observable<Referat> {
     return this.http.post<Referat>(`${this.base}/referate/${id}/send-back`, {
       comment,
+      ...(sendBackTo != null ? { sendBackTo } : {}),
     });
   }
 

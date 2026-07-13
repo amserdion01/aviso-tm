@@ -94,12 +94,14 @@
 .cell-strong {
   font-weight: var(--weight-semibold);
   color: var(--text-strong);
+  overflow-wrap: anywhere;
 }
 
 .cell-muted {
   font-size: var(--text-caption-size);
   color: var(--text-muted);
   margin-top: 1px;
+  overflow-wrap: anywhere;
 }
 
 .cell-subtle {
@@ -171,6 +173,7 @@
   font-weight: var(--weight-semibold);
   color: var(--text-strong, var(--text-body));
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ref-card__val {

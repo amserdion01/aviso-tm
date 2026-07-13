@@ -69,6 +69,7 @@
   letter-spacing: -0.01em;
   color: var(--text-strong);
   margin: 6px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .fields {
@@ -82,6 +83,7 @@
   color: var(--text-strong);
   font-weight: var(--weight-medium);
   margin-top: 4px;
+  overflow-wrap: anywhere;
 
   &.strong {
     font-weight: var(--weight-semibold);
@@ -98,6 +100,7 @@
     color: var(--text-body);
     line-height: 1.55;
     margin-top: 6px;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -163,6 +166,12 @@
   display: block;
   width: 100%;
   margin-top: 16px;
+}
+
+.sendback-field {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
 }
 
 .actions {

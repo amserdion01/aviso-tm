@@ -176,18 +176,71 @@
               }
             </mat-form-field>
 
+            @if (sendBackTargets().length > 1) {
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="sendback-field"
+              >
+                <mat-label>Trimite înapoi la</mat-label>
+                <mat-select
+                  [value]="sendBackValue()"
+                  (selectionChange)="sendBackChoice.set($event.value)"
+                >
+                  @for (t of sendBackTargets(); track t.stepOrder) {
+                    <mat-option [value]="t.stepOrder">
+                      {{ t.stepOrder }}. {{ t.label }}
+                    </mat-option>
+                  }
+                </mat-select>
+                <mat-hint>Pașii dintre pasul ales și cel curent se reiau.</mat-hint>
+              </mat-form-field>
+            }
+
             <div class="actions">
-              <button mat-flat-button color="primary" class="act-btn" (click)="approve()">
+              <button
+                mat-flat-button
+                color="primary"
+                class="act-btn"
+                [disabled]="acting()"
+                (click)="approve()"
+              >
                 <app-icon name="check" [size]="16" [strokeWidth]="2.25" />
                 Aprobă
               </button>
-              <button mat-stroked-button class="act-btn" (click)="sendBack()">
+              <button
+                mat-stroked-button
+                class="act-btn"
+                [disabled]="acting()"
+                (click)="sendBack()"
+              >
                 <app-icon name="corner-up-left" [size]="16" [strokeWidth]="2.25" />
                 Trimite înapoi
               </button>
-              <button mat-stroked-button class="act-btn btn-danger" (click)="reject()">
+              <button
+                mat-stroked-button
+                class="act-btn btn-danger"
+                [disabled]="acting()"
+                (click)="reject()"
+              >
                 <app-icon name="x" [size]="16" [strokeWidth]="2.25" />
                 Respinge
+              </button>
+            </div>
+          } @else if (canResubmit()) {
+            <div class="step-line">
+              Referatul ți-a fost trimis înapoi. Corectează-l și retrimite-l pe
+              traseul de avizare.
+            </div>
+            <div class="actions">
+              <button
+                mat-flat-button
+                color="primary"
+                class="act-btn"
+                (click)="goCorrect()"
+              >
+                <app-icon name="corner-up-left" [size]="16" [strokeWidth]="2.25" />
+                Corectează și retrimite
               </button>
             </div>
           } @else {

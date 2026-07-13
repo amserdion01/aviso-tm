@@ -16,7 +16,7 @@ import { renderReferatDocument } from './referat-document';
 import { PdfService } from '../pdf/pdf.service';
 import { AuthUser, CurrentUser } from '../auth/current-user.decorator';
 import { CreateReferatDto } from './dto/create-referat.dto';
-import { ApproveDto, CommentRequiredDto } from './dto/action.dto';
+import { ApproveDto, CommentRequiredDto, SendBackDto } from './dto/action.dto';
 
 /** All routes require a JWT (global guard); identity comes from the token. */
 @Controller('referate')
@@ -32,6 +32,12 @@ export class ReferateController {
   @Get('all')
   findAll() {
     return this.referate.findAll();
+  }
+
+  // GET /referate/mine — the token user's own referate (declared before :id).
+  @Get('mine')
+  mine(@CurrentUser() user: AuthUser) {
+    return this.referate.mine(user.id);
   }
 
   // GET /referate — inbox for the authenticated user's role.
@@ -50,6 +56,17 @@ export class ReferateController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateReferatDto) {
     return this.workflow.create(dto, user.id);
+  }
+
+  // POST /referate/:id/resubmit — requester corrects a sent-back referat and
+  // resubmits it; the chain is re-materialized and restarts at step 1.
+  @Post(':id/resubmit')
+  resubmit(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateReferatDto,
+  ) {
+    return this.workflow.resubmit(id, user.id, dto);
   }
 
   @Post(':id/approve')
@@ -74,7 +91,7 @@ export class ReferateController {
   sendBack(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
-    @Body() dto: CommentRequiredDto,
+    @Body() dto: SendBackDto,
   ) {
     return this.workflow.sendBack(id, user.id, dto);
   }

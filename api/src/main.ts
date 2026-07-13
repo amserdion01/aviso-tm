@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
@@ -13,7 +14,11 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create(AppModule);
 
-  // Faked auth means no sessions; just allow the Angular dev origin.
+  // Security headers for the public deploy; drop the Express fingerprint.
+  app.use(helmet());
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+
+  // The API and the SPA are separate origins; allow only the configured one.
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:4200',
   });
