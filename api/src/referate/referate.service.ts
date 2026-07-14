@@ -2,20 +2,25 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Public user fields — NEVER expose passwordHash in any referat response. */
+const USER_PUBLIC = {
+  select: { id: true, name: true, email: true, role: true },
+} satisfies { select: Prisma.UserSelect };
+
 /** Shared include shape so list/detail responses are consistent. */
 const REFERAT_INCLUDE = {
-  requester: true,
+  requester: USER_PUBLIC,
   tasks: {
     orderBy: { stepOrder: 'asc' },
-    include: { effectiveApprover: true, actedBy: true },
+    include: { effectiveApprover: USER_PUBLIC, actedBy: USER_PUBLIC },
   },
   transitions: {
     orderBy: { createdAt: 'asc' },
-    include: { actor: true },
+    include: { actor: USER_PUBLIC },
   },
   attachments: {
     orderBy: { createdAt: 'asc' },
-    include: { uploadedBy: true },
+    include: { uploadedBy: USER_PUBLIC },
   },
 } satisfies Prisma.ReferatInclude;
 
