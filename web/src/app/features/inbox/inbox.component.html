@@ -168,7 +168,11 @@
           mat-row
           *matRowDef="let r; columns: displayedColumns"
           class="inbox__row"
+          tabindex="0"
+          role="button"
+          [attr.aria-label]="'Deschide referatul ' + r.articol"
           (click)="openDetail(r)"
+          (keydown.enter)="openDetail(r)"
         ></tr>
       </table>
     </div>

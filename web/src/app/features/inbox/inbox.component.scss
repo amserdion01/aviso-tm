@@ -27,12 +27,16 @@
 /* ---- Card wrapping the table (padding removed so the table sits flush) ---- */
 .inbox__card {
   padding: 0;
-  overflow: hidden;
+  // Scroll the table horizontally instead of clipping the right-hand columns
+  // (the action buttons) when it is wider than the card (narrow / zoomed views).
+  overflow-x: auto;
+  border-radius: var(--radius-xl, 14px);
 }
 
 /* ---- Table ---- */
 .inbox__table {
   width: 100%;
+  min-width: 640px;
   background: transparent;
 }
 
